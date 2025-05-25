@@ -16,10 +16,6 @@ import {
   Divider
 } from '@mui/material';
 
-// 导入 CategoryManager 组件 - 不再需要直接在这里导入和渲染
-// import CategoryManager from './CategoryManager';
-
-// 接收 onCategoriesUpdated prop - 不再需要接收此prop
 function Settings() {
   const [apiKey, setApiKey] = useState('');
   const [saving, setSaving] = useState(false);
@@ -93,7 +89,9 @@ function Settings() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ api_key: apiKey }),
+        body: JSON.stringify({
+          api_key: apiKey,
+        }),
       });
       const data = await response.json();
 
@@ -220,11 +218,6 @@ function Settings() {
             />
           </Grid>
         </Grid>
-
-        {/* 分类管理部分 - 移除 */}
-        {/* <Box sx={{ mt: 4 }}>
-           <CategoryManager onCategoriesUpdated={onCategoriesUpdated} />
-        </Box> */}
 
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>

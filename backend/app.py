@@ -4,9 +4,9 @@ import pandas as pd
 import os
 from dotenv import load_dotenv
 import requests
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
 import json
 import re
@@ -39,10 +39,19 @@ class Story(Base):
     id = Column(Integer, primary_key=True)
     title = Column(String(200))
     content = Column(Text)
-    category = Column(String(50))
+    category_id = Column(Integer, ForeignKey('categories.id'))
+    category = relationship("Category")
     source = Column(String(100))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+# 新增 Category 数据模型
+class Category(Base):
+    __tablename__ = 'categories'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), unique=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 # 创建数据库表
 Base.metadata.create_all(engine)
@@ -80,7 +89,7 @@ def process_csv_data(df):
             story = Story(
                 title=title,
                 content=content,
-                category=category,
+                category_id=category,
                 source=source
             )
             session.add(story)
@@ -117,12 +126,12 @@ def get_stories():
         category = request.args.get('category')
         query = session.query(Story)
         if category:
-            query = query.filter(Story.category == category)
+            query = query.filter(Story.category_id == category)
         stories = query.all()
         return jsonify([{
             'id': story.id,
             'title': story.title,
-            'category': story.category,
+            'category': story.category.name,
             'source': story.source,
             'content': story.content,
             'created_at': story.created_at.isoformat()
@@ -202,11 +211,12 @@ def collect_stories():
         collected = []
         tried_titles = set()
         duplicate = []
+        saved = [] # 添加 saved 列表用于记录保存成功的故事标题
         max_attempts = 3
         attempt = 0
 
         # 在循环外部获取数据库中当前分类下已有的标题
-        existing_titles = [s.title for s in session.query(Story).filter(Story.category == category).all()]
+        existing_titles = [s.title for s in session.query(Story).filter(Story.category_id == category).all()]
         logger.info(f"数据库中{category}分类下已有故事: {existing_titles}")
 
         titles_str = ''
@@ -303,7 +313,7 @@ def collect_stories():
                     continue
                 
                 exists = session.query(Story).filter(
-                    Story.category == category,
+                    Story.category_id == category,
                     (Story.title == title) | (Story.content == summary)
                 ).first()
                 if exists:
@@ -315,41 +325,31 @@ def collect_stories():
                 s = Story(
                     title=title or '无标题',
                     content=summary or '无简介',
-                    category=category,  # 使用当前收集的分类
+                    category_id=category,  # 使用当前收集的分类
                     source='silicon_flow'
                 )
                 session.add(s)
-                session.commit()
-                saved_story = session.query(Story).filter(Story.title == title).first()
-                if saved_story:
-                    collected.append({
-                        'id': saved_story.id,
-                        'title': saved_story.title,
-                        'category': saved_story.category,
-                        'content': saved_story.content,
-                        'source': saved_story.source,
-                        'created_at': saved_story.created_at.isoformat() if saved_story.created_at else ''
-                    })
-                    # 更新已有标题列表
-                    existing_titles.append(title)
+                saved.append(title)
+                collected.append(story)
                 tried_titles.add(title)
             
             attempt += 1
         
+        session.commit()
         session.close()
-        logger.info(f"收集完成 - 成功: {len(collected)}, 重复: {len(duplicate)}")
+        logger.info(f"收集完成 - 成功: {len(saved)}, 重复: {len(duplicate)}")
         
         if len(collected) < target_count:
             return jsonify({
                 'message': f'有效收集数量不足，仅收集到{len(collected)}个故事',
-                'saved': [s['title'] for s in collected],
+                'saved': saved,
                 'duplicate': duplicate,
                 'stories': collected
             }), 200
         
         return jsonify({
             'message': '故事采集并保存成功',
-            'saved': [s['title'] for s in collected],
+            'saved': saved,
             'duplicate': duplicate,
             'stories': collected
         }), 200
@@ -424,7 +424,7 @@ def edit_story(story_id):
             return jsonify({'error': '未找到该故事'}), 404
         data = request.json
         story.title = data.get('title', story.title)
-        story.category = data.get('category', story.category)
+        story.category_id = data.get('category', story.category_id)
         story.content = data.get('content', story.content)
         story.source = data.get('source', story.source)
         session.commit()
@@ -448,6 +448,98 @@ def delete_story(story_id):
     except Exception as e:
         session.rollback()
         return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
+@app.route('/api/categories', methods=['GET'])
+def get_categories():
+    """获取所有故事分类列表"""
+    session = Session()
+    try:
+        categories = session.query(Category).all()
+        return jsonify([{'id': cat.id, 'name': cat.name} for cat in categories])
+    finally:
+        session.close()
+
+@app.route('/api/categories', methods=['POST'])
+def add_category():
+    """添加新的故事分类"""
+    data = request.json
+    name = data.get('name')
+    if not name or not str(name).strip():
+        return jsonify({'error': '分类名称不能为空'}), 400
+
+    session = Session()
+    try:
+        # 检查分类是否已存在
+        existing_category = session.query(Category).filter(Category.name == name).first()
+        if existing_category:
+            return jsonify({'error': f'分类 "{name}" 已存在'}), 409 # 409 Conflict
+
+        new_category = Category(name=name)
+        session.add(new_category)
+        session.commit()
+        return jsonify({'message': '分类添加成功', 'category': {'id': new_category.id, 'name': new_category.name}}), 201 # 201 Created
+    except Exception as e:
+        session.rollback()
+        logger.error(f"添加分类失败: {str(e)}")
+        return jsonify({'error': '添加分类失败', 'details': str(e)}), 500
+    finally:
+        session.close()
+
+@app.route('/api/categories/<int:category_id>', methods=['PUT'])
+def update_category(category_id):
+    """更新故事分类名称"""
+    data = request.json
+    new_name = data.get('name')
+    if not new_name or not str(new_name).strip():
+        return jsonify({'error': '分类名称不能为空'}), 400
+
+    session = Session()
+    try:
+        category = session.query(Category).get(category_id)
+        if not category:
+            return jsonify({'error': '未找到该分类'}), 404
+
+        # 检查新名称是否已存在（排除当前分类本身）
+        existing_category = session.query(Category).filter(Category.name == new_name, Category.id != category_id).first()
+        if existing_category:
+             return jsonify({'error': f'分类 "{new_name}" 已存在'}), 409 # 409 Conflict
+
+        category.name = new_name
+        session.commit()
+        return jsonify({'message': '分类更新成功', 'category': {'id': category.id, 'name': category.name}})
+    except Exception as e:
+        session.rollback()
+        logger.error(f"更新分类失败: {str(e)}")
+        return jsonify({'error': '更新分类失败', 'details': str(e)}), 500
+    finally:
+        session.close()
+
+@app.route('/api/categories/<int:category_id>', methods=['DELETE'])
+def delete_category(category_id):
+    """删除故事分类"""
+    session = Session()
+    try:
+        category = session.query(Category).get(category_id)
+        if not category:
+            return jsonify({'error': '未找到该分类'}), 404
+
+        # 检查是否有故事关联到该分类
+        # SQLAlchemy 外键默认是 RESTRICT，有关联的故事时会报错，这里先简单检查
+        # 如果需要级联删除或设置为 null，需要修改模型定义和数据库约束
+        related_stories_count = session.query(Story).filter(Story.category_id == category_id).count()
+        if related_stories_count > 0:
+             return jsonify({'error': f'该分类下有 {related_stories_count} 个故事，无法删除'}), 409 # 409 Conflict
+
+
+        session.delete(category)
+        session.commit()
+        return jsonify({'message': '分类删除成功'})
+    except Exception as e:
+        session.rollback()
+        logger.error(f"删除分类失败: {str(e)}")
+        return jsonify({'error': '删除分类失败', 'details': str(e)}), 500
     finally:
         session.close()
 

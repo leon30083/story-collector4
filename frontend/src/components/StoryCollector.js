@@ -12,10 +12,17 @@ import {
   Select,
   MenuItem,
   Grid,
-  Chip
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent
 } from '@mui/material';
 
-function StoryCollector({ onStoryGenerated = () => {} }) {
+// 导入 CategoryManager 组件
+import CategoryManager from './CategoryManager';
+
+// 接收 categories 和 onCategoriesUpdated prop
+function StoryCollector({ onStoryGenerated = () => {}, categories = [], onCategoriesUpdated }) {
   const [prompt, setPrompt] = useState('');
   const [category, setCategory] = useState('');
   const [collecting, setCollecting] = useState(false);
@@ -25,6 +32,7 @@ function StoryCollector({ onStoryGenerated = () => {} }) {
   const [selectedModel, setSelectedModel] = useState('');
   const [log, setLog] = useState([]);
   const [logOpen, setLogOpen] = useState(false);
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false); // 新增状态：控制分类管理弹窗
 
   // 从 localStorage 加载设置
   useEffect(() => {
@@ -35,12 +43,6 @@ function StoryCollector({ onStoryGenerated = () => {} }) {
       setSelectedModel(parsedSettings.selectedModel || '');
     }
   }, [selectedModel, settings]);
-
-  const categories = [
-    { value: '成语故事', label: '成语故事' },
-    { value: '童话故事', label: '童话故事' },
-    { value: '神话故事', label: '神话故事' }
-  ];
 
   const appendLog = (msg) => setLog((prev) => [...prev, msg]);
 
@@ -75,14 +77,8 @@ function StoryCollector({ onStoryGenerated = () => {} }) {
         body: JSON.stringify({
           model: selectedModel,
           messages: [
-            {
-              role: 'system',
-              content: `收集${category}，${prompt}`
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
+            { role: 'system', content: `收集${category}，${prompt}` },
+            { role: 'user', content: prompt }
           ],
           max_tokens: settings.maxTokens,
           temperature: settings.temperature,
@@ -125,6 +121,17 @@ function StoryCollector({ onStoryGenerated = () => {} }) {
     }
   };
 
+  // 打开分类管理弹窗
+  const handleOpenCategoryManager = () => {
+    setCategoryManagerOpen(true);
+  };
+
+  // 关闭分类管理弹窗
+  const handleCloseCategoryManager = () => {
+    setCategoryManagerOpen(false);
+    // 弹窗关闭后，如果分类有更新，App.js会刷新categories，这里不需要额外操作
+  };
+
   return (
     <Box>
       <Paper sx={{ p: 3 }}>
@@ -132,8 +139,10 @@ function StoryCollector({ onStoryGenerated = () => {} }) {
           故事采集
         </Typography>
 
-        <Grid container spacing={3}>
-          <Grid item xs={12}>
+        {/* Grid container 调整以容纳管理按钮 */}
+        <Grid container spacing={3} alignItems="center">
+          {/* 分类选择器 */}
+          <Grid item xs={9}> {/* 调整宽度 */}
             <FormControl fullWidth>
               <InputLabel>故事分类</InputLabel>
               <Select
@@ -141,15 +150,23 @@ function StoryCollector({ onStoryGenerated = () => {} }) {
                 onChange={(e) => setCategory(e.target.value)}
                 label="故事分类"
               >
+                {/* 使用 Props 传递的分类列表 */}
                 {categories.map((cat) => (
-                  <MenuItem key={cat.value} value={cat.value}>
-                    {cat.label}
+                  <MenuItem key={cat.id} value={cat.name}>
+                    {cat.name}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
           </Grid>
+          {/* 管理分类按钮 */}
+          <Grid item xs={3}> {/* 添加新Grid item放置按钮 */}
+            <Button variant="outlined" onClick={handleOpenCategoryManager} fullWidth>
+              管理分类
+            </Button>
+          </Grid>
 
+          {/* 故事主题或提示词输入框 */}
           <Grid item xs={12}>
             <TextField
               fullWidth
@@ -162,31 +179,26 @@ function StoryCollector({ onStoryGenerated = () => {} }) {
             />
           </Grid>
 
+          {/* 快速填充 Chip，使用 Props 传递的分类列表 */}
           <Grid item xs={12}>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              <Chip
-                label="成语故事"
-                onClick={() => setPrompt(prev => prev + ' 成语故事')}
-                variant="outlined"
-              />
-              <Chip
-                label="童话故事"
-                onClick={() => setPrompt(prev => prev + ' 童话故事')}
-                variant="outlined"
-              />
-              <Chip
-                label="神话故事"
-                onClick={() => setPrompt(prev => prev + ' 神话故事')}
-                variant="outlined"
-              />
+              {categories.map((cat) => (
+                <Chip
+                  key={cat.id}
+                  label={cat.name}
+                  onClick={() => setPrompt(prev => prev + ' ' + cat.name)}
+                  variant="outlined"
+                />
+              ))}
             </Box>
           </Grid>
 
+          {/* 收集故事按钮 */}
           <Grid item xs={12}>
             <Button
               variant="contained"
               onClick={handleCollect}
-              disabled={collecting || !settings || !selectedModel}
+              disabled={collecting || !settings || !selectedModel || !category}
               startIcon={collecting ? <CircularProgress size={20} /> : null}
               fullWidth
             >
@@ -195,6 +207,7 @@ function StoryCollector({ onStoryGenerated = () => {} }) {
           </Grid>
         </Grid>
 
+        {/* 错误和成功提示 */}
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
             {error}
@@ -227,6 +240,16 @@ function StoryCollector({ onStoryGenerated = () => {} }) {
           )}
         </Box>
       </Paper>
+
+       {/* 分类管理弹窗 */}
+       <Dialog open={categoryManagerOpen} onClose={handleCloseCategoryManager} maxWidth="sm" fullWidth>
+         <DialogTitle>分类管理</DialogTitle>
+         <DialogContent>
+           {/* 渲染 CategoryManager 组件，传递 categories 和 onCategoriesUpdated */}
+           <CategoryManager categories={categories} onCategoriesUpdated={onCategoriesUpdated} />
+         </DialogContent>
+       </Dialog>
+
     </Box>
   );
 }

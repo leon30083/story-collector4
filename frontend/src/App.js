@@ -4,17 +4,11 @@ import StoryUpload from './components/StoryUpload';
 import StoryList from './components/StoryList';
 import StoryCollector from './components/StoryCollector';
 import Settings from './components/Settings';
-
-const categories = [
-  '成语故事',
-  '童话故事',
-  '神话故事',
-  '寓言故事'
-];
+import CategoryManager from './components/CategoryManager';
 
 function App() {
   const [stories, setStories] = useState([]);
-  const [activeTab, setActiveTab] = useState('collect'); // 'collect' 或 'upload'
+  const [categories, setCategories] = useState([]);
 
   // 获取故事列表
   const fetchStories = async (category = '') => {
@@ -25,6 +19,12 @@ function App() {
     const res = await fetch(url);
     const data = await res.json();
     setStories(data);
+  };
+
+  // 分类变更时同步
+  const handleCategoryChange = (newCategories) => {
+    setCategories(newCategories);
+    fetchStories();
   };
 
   // 新增：直接追加新收集的故事
@@ -52,7 +52,11 @@ function App() {
         </Box>
 
         <Box sx={{ mb: 4 }}>
-          <StoryCollector onStoryGenerated={handleStoryCollected} />
+          <CategoryManager onCategoryChange={handleCategoryChange} />
+        </Box>
+
+        <Box sx={{ mb: 4 }}>
+          <StoryCollector onStoryGenerated={handleStoryCollected} categories={categories} />
         </Box>
 
         <Box sx={{ mb: 4 }}>

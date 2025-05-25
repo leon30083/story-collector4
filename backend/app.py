@@ -147,8 +147,6 @@ def get_stories():
 @app.route('/api/collect', methods=['POST'])
 def collect_stories():
     data = request.json
-    
-    # 添加日志，打印接收到的原始请求数据
     logger.info(f"收到采集请求数据: {json.dumps(data, ensure_ascii=False)}")
 
     api_key = data.get('api_key')
@@ -161,7 +159,6 @@ def collect_stories():
     top_p = data.get('top_p', 0.7)
     test_mode = data.get('test', False)
     target_count = int(data.get('count', 1))
-
     # 确保 max_tokens 至少为 8192，以允许生成更多故事
     max_tokens = max(max_tokens, 8192)
 
@@ -173,24 +170,19 @@ def collect_stories():
         logger.warning("请求JSON中未找到分类字段，尝试从messages中解析")
         for msg in messages:
             if msg.get('role') == 'user' and 'category' in msg.get('content', ''):
-                # 注意：这里的解析逻辑可能不准确，强烈建议前端直接传递category字段
                 match = re.search(r'category[\s]*[:：]?[\s]*(.+)', msg.get('content', ''))
                 if match:
                     category = match.group(1).strip()
-                # 简单的匹配末尾的分类名，如果文本是"收集5个安徒生童话童话故事"
                 elif msg.get('content', '').endswith('故事') and len(msg.get('content', '').split()[-1]) > 2:
                     category = msg.get('content', '').split()[-1]
-                
                 if category:
                     logger.info(f"从messages中解析到分类: {category}")
-                    break # 解析到就停止
-
+                    break
     if not category:
         logger.error("未指定故事分类")
         return jsonify({'error': '未指定故事分类'}), 400
 
     logger.info(f"开始收集故事 - 目标数量: {target_count}, 分类: {category}")
-    
     if not api_key or not model or not messages:
         return jsonify({'error': 'API Key、模型名称和对话内容不能为空'}), 400
     
@@ -202,6 +194,7 @@ def collect_stories():
                     return arr
             except Exception:
                 pass
+            # 放宽：尝试提取第一个中括号包裹的内容
             match = re.search(r'(\[.*\])', text, re.DOTALL)
             if match:
                 try:
@@ -244,29 +237,23 @@ def collect_stories():
         for msg in messages:
             if msg.get('role') == 'user':
                 user_message_content = msg.get('content', '')
-                break # 只取第一个用户指令
+                break
 
         while len(collected) < target_count and attempt < max_attempts:
             need = target_count - len(collected)
             logger.info(f"第 {attempt + 1} 次尝试 - 还需收集 {need} 个故事")
             
-            # 构建发送给AI的messages (在循环内部动态替换{N}和{titles})
+            # 构建发送给AI的messages (在循环内部动态替换{N}、{titles}、{category})
             prompt_msgs = []
-            
-            # 替换Prompt模板中的占位符
             prompt_content = prompt_template.replace('{N}', str(need))
             prompt_content = prompt_content.replace('{titles}', titles_str)
-
+            prompt_content = prompt_content.replace('{category}', category)
+            logger.info(f"最终发送给AI的Prompt内容：\n{prompt_content}")
             prompt_msgs.append({'role': 'system', 'content': prompt_content})
-
-            # 添加用户指令
             if user_message_content:
                  prompt_msgs.append({'role': 'user', 'content': user_message_content})
                  logger.info(f"用户指令: {user_message_content}")
-
-            # 直接调用AI生成故事
-            logger.info(f"发送API请求生成故事，最终构建的Prompt:\n{prompt_content}")
-
+            logger.info(f"发送API请求参数：model={model}, max_tokens={max_tokens}, temperature={temperature}, top_p={top_p}, category={category}")
             response = requests.post(
                 'https://api.siliconflow.cn/v1/chat/completions',
                 headers={'Authorization': f'Bearer {api_key}'},
@@ -280,6 +267,7 @@ def collect_stories():
             )
             response.raise_for_status()
             result = response.json()
+            logger.info(f"AI原始响应: {json.dumps(result, ensure_ascii=False)}")
             content = result['choices'][0]['message'].get('content', '')
             logger.info(f"AI响应内容: {content}")
             
@@ -288,6 +276,10 @@ def collect_stories():
                 return jsonify({'message': '测试模式', 'content': content})
             
             stories = extract_json_array(content)
+            if stories is not None and isinstance(stories, list) and len(stories) == 0:
+                logger.warning("AI返回空数组，未采集到新故事")
+                session.close()
+                return jsonify({'message': '未采集到符合要求的故事', 'stories': []}), 200
             if not stories:
                 logger.warning(f"AI返回内容不是有效的JSON数组: {content}")
                 session.close()

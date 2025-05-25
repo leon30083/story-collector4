@@ -15,7 +15,7 @@ import {
   Chip
 } from '@mui/material';
 
-function StoryCollector({ onStoryGenerated = () => {} }) {
+function StoryCollector({ onStoryGenerated = () => {}, categories = [] }) {
   const [prompt, setPrompt] = useState('');
   const [category, setCategory] = useState('');
   const [collecting, setCollecting] = useState(false);
@@ -25,6 +25,7 @@ function StoryCollector({ onStoryGenerated = () => {} }) {
   const [selectedModel, setSelectedModel] = useState('');
   const [log, setLog] = useState([]);
   const [logOpen, setLogOpen] = useState(false);
+  const [count, setCount] = useState(1);
 
   // 从 localStorage 加载设置
   useEffect(() => {
@@ -35,12 +36,6 @@ function StoryCollector({ onStoryGenerated = () => {} }) {
       setSelectedModel(parsedSettings.selectedModel || '');
     }
   }, [selectedModel, settings]);
-
-  const categories = [
-    { value: '成语故事', label: '成语故事' },
-    { value: '童话故事', label: '童话故事' },
-    { value: '神话故事', label: '神话故事' }
-  ];
 
   const appendLog = (msg) => setLog((prev) => [...prev, msg]);
 
@@ -87,7 +82,8 @@ function StoryCollector({ onStoryGenerated = () => {} }) {
           max_tokens: settings.maxTokens,
           temperature: settings.temperature,
           top_p: settings.topP,
-          category: category
+          category: category,
+          count: count
         }),
       });
       appendLog('请求已发送，等待响应...');
@@ -133,7 +129,7 @@ function StoryCollector({ onStoryGenerated = () => {} }) {
         </Typography>
 
         <Grid container spacing={3}>
-          <Grid item xs={12}>
+          <Grid item xs={12} sm={6}>
             <FormControl fullWidth>
               <InputLabel>故事分类</InputLabel>
               <Select
@@ -142,14 +138,21 @@ function StoryCollector({ onStoryGenerated = () => {} }) {
                 label="故事分类"
               >
                 {categories.map((cat) => (
-                  <MenuItem key={cat.value} value={cat.value}>
-                    {cat.label}
-                  </MenuItem>
+                  <MenuItem key={cat} value={cat}>{cat}</MenuItem>
                 ))}
               </Select>
             </FormControl>
           </Grid>
-
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              type="number"
+              label="采集数量"
+              value={count}
+              onChange={e => setCount(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+              inputProps={{ min: 1, max: 20 }}
+            />
+          </Grid>
           <Grid item xs={12}>
             <TextField
               fullWidth

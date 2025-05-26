@@ -149,8 +149,8 @@ function StoryCollector({ onStoryGenerated = () => {}, categories = [] }) {
               type="number"
               label="采集数量"
               value={count}
-              onChange={e => setCount(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
-              inputProps={{ min: 1, max: 20 }}
+              onChange={e => setCount(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
+              inputProps={{ min: 1, max: 100 }}
             />
           </Grid>
           <Grid item xs={12}>

@@ -28,30 +28,148 @@ import {
 import InfoIcon from '@mui/icons-material/Info';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import Checkbox from '@mui/material/Checkbox';
+import DownloadIcon from '@mui/icons-material/Download';
 
-function StoryList({ stories, categories, onCategoryChange }) {
+function StoryList({ stories, categories, onCategoryChange, batches = [] }) {
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedBatch, setSelectedBatch] = useState('');
   const [search, setSearch] = useState('');
   const [detailStory, setDetailStory] = useState(null);
   const [editStory, setEditStory] = useState(null);
   const [deleteStory, setDeleteStory] = useState(null);
   const [editForm, setEditForm] = useState({ title: '', category: '', content: '' });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [batchCategory, setBatchCategory] = useState('');
+  const [batchDialogOpen, setBatchDialogOpen] = useState(false);
 
   const handleCategoryChange = (event) => {
     const category = event.target.value;
     setSelectedCategory(category);
-    onCategoryChange(category);
+    onCategoryChange(category, selectedBatch);
+  };
+
+  const handleBatchChange = (event) => {
+    const batch = event.target.value;
+    setSelectedBatch(batch);
+    onCategoryChange(selectedCategory, batch);
   };
 
   // 关键词过滤
   const filteredStories = stories.filter((story) => {
     const matchCategory = selectedCategory ? story.category === selectedCategory : true;
+    const matchBatch = selectedBatch ? story.batch === selectedBatch : true;
     const matchSearch = search
       ? (story.title && story.title.includes(search)) || (story.content && story.content.includes(search))
       : true;
-    return matchCategory && matchSearch;
+    return matchCategory && matchBatch && matchSearch;
   });
+
+  // 多选逻辑
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedIds(filteredStories.map((s) => s.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+  const handleSelectOne = (id) => {
+    setSelectedIds((prev) => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+  const isAllSelected = filteredStories.length > 0 && selectedIds.length === filteredStories.length;
+
+  // 批量删除
+  const handleBatchDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm('确定要批量删除选中的故事吗？')) return;
+    try {
+      const res = await fetch('http://localhost:5000/api/stories/batch_delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSnackbar({ open: true, message: data.message, severity: 'success' });
+        setSelectedIds([]);
+        onCategoryChange(selectedCategory, selectedBatch);
+      } else {
+        setSnackbar({ open: true, message: data.error || '批量删除失败', severity: 'error' });
+      }
+    } catch (e) {
+      setSnackbar({ open: true, message: '网络错误', severity: 'error' });
+    }
+  };
+
+  // 批量分类
+  const handleBatchCategory = async () => {
+    if (selectedIds.length === 0 || !batchCategory) return;
+    try {
+      const res = await fetch('http://localhost:5000/api/stories/batch_update_category', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds, category: batchCategory })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSnackbar({ open: true, message: data.message, severity: 'success' });
+        setSelectedIds([]);
+        setBatchDialogOpen(false);
+        onCategoryChange(selectedCategory, selectedBatch);
+      } else {
+        setSnackbar({ open: true, message: data.error || '批量分类失败', severity: 'error' });
+      }
+    } catch (e) {
+      setSnackbar({ open: true, message: '网络错误', severity: 'error' });
+    }
+  };
+
+  // 批量导出
+  const handleBatchExport = async () => {
+    if (selectedIds.length === 0) return;
+    try {
+      const res = await fetch('http://localhost:5000/api/stories/batch_export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds })
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'stories_export.csv';
+        a.click();
+        window.URL.revokeObjectURL(url);
+      } else {
+        setSnackbar({ open: true, message: '批量导出失败', severity: 'error' });
+      }
+    } catch (e) {
+      setSnackbar({ open: true, message: '网络错误', severity: 'error' });
+    }
+  };
+
+  // 按批次导出
+  const handleExportByBatch = async () => {
+    if (!selectedBatch) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/stories/export_by_batch?batch=${selectedBatch}`);
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `stories_batch_${selectedBatch}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      } else {
+        setSnackbar({ open: true, message: '批次导出失败', severity: 'error' });
+      }
+    } catch (e) {
+      setSnackbar({ open: true, message: '网络错误', severity: 'error' });
+    }
+  };
 
   // 编辑弹窗初始化
   const openEditDialog = (story) => {
@@ -80,7 +198,7 @@ function StoryList({ stories, categories, onCategoryChange }) {
       if (res.ok) {
         setSnackbar({ open: true, message: '编辑成功', severity: 'success' });
         setEditStory(null);
-        onCategoryChange(selectedCategory); // 刷新
+        onCategoryChange(selectedCategory, selectedBatch); // 刷新
       } else {
         setSnackbar({ open: true, message: data.error || '编辑失败', severity: 'error' });
       }
@@ -99,7 +217,7 @@ function StoryList({ stories, categories, onCategoryChange }) {
       if (res.ok) {
         setSnackbar({ open: true, message: '删除成功', severity: 'success' });
         setDeleteStory(null);
-        onCategoryChange(selectedCategory); // 刷新
+        onCategoryChange(selectedCategory, selectedBatch); // 刷新
       } else {
         setSnackbar({ open: true, message: data.error || '删除失败', severity: 'error' });
       }
@@ -126,6 +244,27 @@ function StoryList({ stories, categories, onCategoryChange }) {
             ))}
           </Select>
         </FormControl>
+        <FormControl sx={{ minWidth: 160 }}>
+          <InputLabel>整理批次</InputLabel>
+          <Select
+            value={selectedBatch}
+            onChange={handleBatchChange}
+            label="整理批次"
+          >
+            <MenuItem value="">全部</MenuItem>
+            {batches.map((batch) => (
+              <MenuItem key={batch} value={batch}>{batch}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <Button
+          variant="outlined"
+          startIcon={<DownloadIcon />}
+          onClick={handleExportByBatch}
+          disabled={!selectedBatch}
+        >
+          按批次导出
+        </Button>
         <TextField
           label="关键词搜索"
           value={search}
@@ -133,13 +272,31 @@ function StoryList({ stories, categories, onCategoryChange }) {
           sx={{ minWidth: 200 }}
         />
       </Box>
-
+      <Box sx={{ mb: 2, display: 'flex', gap: 2 }}>
+        <Button variant="contained" color="error" onClick={handleBatchDelete} disabled={selectedIds.length === 0}>
+          批量删除
+        </Button>
+        <Button variant="contained" onClick={() => setBatchDialogOpen(true)} disabled={selectedIds.length === 0}>
+          批量分类
+        </Button>
+        <Button variant="contained" onClick={handleBatchExport} disabled={selectedIds.length === 0}>
+          批量导出
+        </Button>
+      </Box>
       <TableContainer component={Paper}>
         <Table size="small">
           <TableHead>
             <TableRow>
+              <TableCell padding="checkbox">
+                <Checkbox
+                  checked={isAllSelected}
+                  indeterminate={selectedIds.length > 0 && !isAllSelected}
+                  onChange={handleSelectAll}
+                />
+              </TableCell>
               <TableCell>标题</TableCell>
               <TableCell>分类</TableCell>
+              <TableCell>批次</TableCell>
               <TableCell>创建时间</TableCell>
               <TableCell>简介</TableCell>
               <TableCell>操作</TableCell>
@@ -147,11 +304,18 @@ function StoryList({ stories, categories, onCategoryChange }) {
           </TableHead>
           <TableBody>
             {filteredStories.map((story) => (
-              <TableRow key={story.id}>
+              <TableRow key={story.id} selected={selectedIds.includes(story.id)}>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    checked={selectedIds.includes(story.id)}
+                    onChange={() => handleSelectOne(story.id)}
+                  />
+                </TableCell>
                 <TableCell>{story.title}</TableCell>
                 <TableCell>
                   <Chip label={story.category} color="primary" size="small" />
                 </TableCell>
+                <TableCell>{story.batch || '-'}</TableCell>
                 <TableCell>{new Date(story.created_at).toLocaleString()}</TableCell>
                 <TableCell>
                   {story.content
@@ -175,7 +339,7 @@ function StoryList({ stories, categories, onCategoryChange }) {
             ))}
             {filteredStories.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={7} align="center">
                   暂无数据
                 </TableCell>
               </TableRow>
@@ -248,6 +412,29 @@ function StoryList({ stories, categories, onCategoryChange }) {
         <DialogActions>
           <Button onClick={() => setDeleteStory(null)}>取消</Button>
           <Button onClick={handleDelete} color="error" variant="contained">删除</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 批量分类弹窗 */}
+      <Dialog open={batchDialogOpen} onClose={() => setBatchDialogOpen(false)}>
+        <DialogTitle>批量分类</DialogTitle>
+        <DialogContent>
+          <FormControl sx={{ minWidth: 200 }}>
+            <InputLabel>选择分类</InputLabel>
+            <Select
+              value={batchCategory}
+              onChange={e => setBatchCategory(e.target.value)}
+              label="选择分类"
+            >
+              {categories.map((category) => (
+                <MenuItem key={category} value={category}>{category}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBatchDialogOpen(false)}>取消</Button>
+          <Button onClick={handleBatchCategory} variant="contained">确定</Button>
         </DialogActions>
       </Dialog>
 

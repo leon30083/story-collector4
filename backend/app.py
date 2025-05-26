@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import pandas as pd
 import os
@@ -11,6 +11,7 @@ from datetime import datetime
 import json
 import re
 import logging
+from io import BytesIO
 
 # 配置日志
 logging.basicConfig(
@@ -41,6 +42,7 @@ class Story(Base):
     content = Column(Text)
     category = Column(String(50))
     source = Column(String(100))
+    batch = Column(String(50))  # 新增批次字段
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -61,8 +63,8 @@ with Session() as session:
             session.add(Category(name=cat))
     session.commit()
 
-def process_csv_data(df):
-    """处理CSV数据并保存到数据库，查重，支持中文表头自动映射"""
+def process_csv_data(df, batch=None):
+    """处理CSV数据并保存到数据库，查重，支持中文表头自动映射，支持批次，自动同步新分类，空分类归为未分类"""
     # 字段映射
     col_map = {
         '名称': 'title',
@@ -71,19 +73,36 @@ def process_csv_data(df):
         'title': 'title',
         'category': 'category',
         'content': 'content',
-        'source': 'source'
+        'source': 'source',
+        'batch': 'batch'
     }
     # 重命名DataFrame列
     df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
     session = Session()
     duplicate_count = 0
     success_count = 0
+    if not batch:
+        batch = datetime.now().strftime('import_%Y%m%d%H%M%S')
+    # 确保有"未分类"
+    if not session.query(Category).filter_by(name='未分类').first():
+        session.add(Category(name='未分类'))
+        session.commit()
     try:
         for _, row in df.iterrows():
             title = row.get('title', '')
             content = row.get('content', '')
             category = row.get('category', '')
+            # 兼容NaN、None、空字符串
+            if pd.isna(category) or not str(category).strip():
+                category = '未分类'
             source = row.get('source', '')
+            row_batch = row.get('batch', batch)
+            # 自动同步新分类
+            if category:
+                cat_obj = session.query(Category).filter_by(name=category).first()
+                if not cat_obj:
+                    session.add(Category(name=category))
+                    session.commit()
             # 查重：标题或内容重复则跳过
             exists = session.query(Story).filter(
                 (Story.title == title) | (Story.content == content)
@@ -95,7 +114,8 @@ def process_csv_data(df):
                 title=title,
                 content=content,
                 category=category,
-                source=source
+                source=source,
+                batch=row_batch
             )
             session.add(story)
             success_count += 1
@@ -116,22 +136,26 @@ def upload_csv():
         return jsonify({'error': '没有选择文件'}), 400
     if not file.filename.endswith('.csv'):
         return jsonify({'error': '只支持CSV文件'}), 400
+    batch = request.form.get('batch')
     try:
         df = pd.read_csv(file)
-        success_count, duplicate_count = process_csv_data(df)
-        return jsonify({'message': '文件上传完成', 'success_count': success_count, 'duplicate_count': duplicate_count})
+        success_count, duplicate_count = process_csv_data(df, batch=batch)
+        return jsonify({'message': '文件上传完成', 'success_count': success_count, 'duplicate_count': duplicate_count, 'batch': batch})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/stories', methods=['GET'])
 def get_stories():
-    """获取故事列表"""
+    """获取故事列表，支持按分类和批次筛选"""
     session = Session()
     try:
         category = request.args.get('category')
+        batch = request.args.get('batch')
         query = session.query(Story)
         if category:
             query = query.filter(Story.category == category)
+        if batch:
+            query = query.filter(Story.batch == batch)
         stories = query.all()
         return jsonify([{
             'id': story.id,
@@ -139,7 +163,8 @@ def get_stories():
             'category': story.category,
             'source': story.source,
             'content': story.content,
-            'created_at': story.created_at.isoformat()
+            'batch': story.batch,
+            'created_at': story.created_at.isoformat() if story.created_at else None
         } for story in stories])
     finally:
         session.close()
@@ -159,11 +184,15 @@ def collect_stories():
     top_p = data.get('top_p', 0.7)
     test_mode = data.get('test', False)
     target_count = int(data.get('count', 1))
+    # 限制最大采集数量为100
+    target_count = min(target_count, 100)
     # 确保 max_tokens 至少为 8192，以允许生成更多故事
     max_tokens = max(max_tokens, 8192)
 
     # 优先从请求JSON中获取分类字段
     category = data.get('category')
+    if not category or str(category).strip() == '':
+        category = '未分类'
 
     # 如果请求JSON中没有获取到分类，则尝试从messages内容中解析（作为备用）
     if not category:
@@ -238,6 +267,10 @@ def collect_stories():
             if msg.get('role') == 'user':
                 user_message_content = msg.get('content', '')
                 break
+
+        batch = data.get('batch')
+        if not batch:
+            batch = datetime.now().strftime('collect_%Y%m%d%H%M%S')
 
         while len(collected) < target_count and attempt < max_attempts:
             need = target_count - len(collected)
@@ -322,7 +355,8 @@ def collect_stories():
                     title=title or '无标题',
                     content=summary or '无简介',
                     category=category,  # 使用当前收集的分类
-                    source='silicon_flow'
+                    source='silicon_flow',
+                    batch=batch
                 )
                 session.add(s)
                 session.commit()
@@ -334,6 +368,7 @@ def collect_stories():
                         'category': saved_story.category,
                         'content': saved_story.content,
                         'source': saved_story.source,
+                        'batch': saved_story.batch,
                         'created_at': saved_story.created_at.isoformat() if saved_story.created_at else ''
                     })
                     # 更新已有标题列表
@@ -511,12 +546,92 @@ def delete_category(cat_id):
         category = session.query(Category).get(cat_id)
         if not category:
             return jsonify({'error': '未找到该分类'}), 404
-        # 检查是否有故事引用该分类
-        if session.query(Story).filter_by(category=category.name).first():
-            return jsonify({'error': '有故事正在使用该分类，无法删除'}), 400
+        # 先删除该分类下所有故事
+        session.query(Story).filter_by(category=category.name).delete(synchronize_session=False)
         session.delete(category)
         session.commit()
-        return jsonify({'message': '分类删除成功'})
+        return jsonify({'message': '分类及其下所有故事已删除'})
+    finally:
+        session.close()
+
+@app.route('/api/stories/batch_delete', methods=['POST'])
+def batch_delete_stories():
+    data = request.json
+    ids = data.get('ids', [])
+    if not ids:
+        return jsonify({'error': '未提供要删除的故事ID列表'}), 400
+    session = Session()
+    try:
+        deleted = session.query(Story).filter(Story.id.in_(ids)).delete(synchronize_session=False)
+        session.commit()
+        return jsonify({'message': f'已删除{deleted}条故事'})
+    except Exception as e:
+        session.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
+@app.route('/api/stories/batch_update_category', methods=['POST'])
+def batch_update_category():
+    data = request.json
+    ids = data.get('ids', [])
+    category = data.get('category')
+    if not ids or not category:
+        return jsonify({'error': '缺少参数'}), 400
+    session = Session()
+    try:
+        updated = session.query(Story).filter(Story.id.in_(ids)).update({Story.category: category}, synchronize_session=False)
+        session.commit()
+        return jsonify({'message': f'已更新{updated}条故事的分类'})
+    except Exception as e:
+        session.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
+@app.route('/api/stories/batch_export', methods=['POST'])
+def batch_export_stories():
+    data = request.json
+    ids = data.get('ids', [])
+    if not ids:
+        return jsonify({'error': '未提供要导出的故事ID列表'}), 400
+    session = Session()
+    try:
+        stories = session.query(Story).filter(Story.id.in_(ids)).all()
+        output = BytesIO()
+        # 写表头
+        output.write('名称,故事分类,简介,故事内容,出处,批次\n'.encode('utf-8'))
+        for s in stories:
+            output.write(f'"{s.title}","{s.category}","{s.content}","{s.content}","{s.source}","{s.batch}"\n'.encode('utf-8'))
+        output.seek(0)
+        return send_file(
+            output,
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name='stories_export.csv',
+        )
+    finally:
+        session.close()
+
+@app.route('/api/stories/export_by_batch', methods=['GET'])
+def export_by_batch():
+    batch = request.args.get('batch')
+    if not batch:
+        return jsonify({'error': '未指定批次号'}), 400
+    session = Session()
+    try:
+        stories = session.query(Story).filter(Story.batch == batch).all()
+        output = BytesIO()
+        output.write('名称,故事分类,简介,故事内容,出处,批次\n'.encode('utf-8'))
+        for s in stories:
+            output.write(f'"{s.title}","{s.category}","{s.content}","{s.content}","{s.source}","{s.batch}"\n'.encode('utf-8'))
+        output.seek(0)
+        return send_file(
+            output,
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=f'stories_batch_{batch}.csv',
+        )
     finally:
         session.close()
 

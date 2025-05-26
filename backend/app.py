@@ -217,6 +217,8 @@ def collect_stories():
     
     try:
         def extract_json_array(text):
+            # 去除代码块标记
+            text = re.sub(r'```json|```', '', text)
             try:
                 arr = json.loads(text)
                 if isinstance(arr, list):

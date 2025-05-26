@@ -26,6 +26,8 @@ function StoryCollector({ onStoryGenerated = () => {}, categories = [] }) {
   const [log, setLog] = useState([]);
   const [logOpen, setLogOpen] = useState(false);
   const [count, setCount] = useState(1);
+  const [batchSize, setBatchSize] = useState(20);
+  const [progress, setProgress] = useState({current: 0, total: 0, logs: []});
 
   // 从 localStorage 加载设置
   useEffect(() => {
@@ -44,75 +46,94 @@ function StoryCollector({ onStoryGenerated = () => {}, categories = [] }) {
       setError('请输入故事主题或提示词');
       return;
     }
-
     if (!category) {
       setError('请选择故事分类');
       return;
     }
-
     if (!settings || !selectedModel) {
       setError('请先在设置中配置API和模型');
       return;
     }
-
     setCollecting(true);
     setError('');
     setSuccess('');
     setLog([]);
-    appendLog('正在发送采集请求...');
-
+    setProgress({current: 0, total: 0, logs: []});
+    appendLog('正在分批采集...');
+    let total = Math.max(1, Math.min(100, Number(count) || 1));
+    let batch = Math.max(1, Math.min(50, Number(batchSize) || 20));
+    let collected = [];
+    let duplicate = [];
+    let progressLogs = [];
+    let attempt = 0;
     try {
-      const response = await fetch('http://localhost:5000/api/collect', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: selectedModel,
-          messages: [
-            {
-              role: 'system',
-              content: `收集${category}，${prompt}`
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          max_tokens: settings.maxTokens,
-          temperature: settings.temperature,
-          top_p: settings.topP,
-          category: category,
-          count: count
-        }),
-      });
-      appendLog('请求已发送，等待响应...');
-      const data = await response.json();
-      appendLog('收到响应：' + JSON.stringify(data));
-
-      if (response.ok) {
-        if (Array.isArray(data.stories)) {
-          setSuccess(`收集成功，已保存${data.saved?.length || 0}条，重复${data.duplicate?.length || 0}条`);
-          appendLog('保存的故事：' + (data.saved || []).join('，'));
-          appendLog('重复的故事：' + (data.duplicate || []).join('，'));
-          onStoryGenerated(data.stories);
-        } else if (data.message && data.message.includes('有效收集数量不足')) {
-          setError('有效收集数量不足，建议更换提示词或缩小范围。');
-          setSuccess('');
-          appendLog(data.message);
-        } else if (data.duplicate) {
-          setError('故事已存在，未保存');
-          setSuccess('');
-          onStoryGenerated();
+      while (collected.length < total && attempt < 10) {
+        let need = Math.min(batch, total - collected.length);
+        setProgress(p => ({...p, current: attempt + 1, total: Math.ceil(total / batch), logs: [...progressLogs, `第${attempt + 1}批，目标${need}条...`]}));
+        appendLog(`第${attempt + 1}批采集，目标${need}条...`);
+        const response = await fetch('http://localhost:5000/api/collect', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: selectedModel,
+            messages: [
+              {
+                role: 'system',
+                content: `收集${category}，${prompt}`
+              },
+              {
+                role: 'user',
+                content: prompt
+              }
+            ],
+            max_tokens: settings.maxTokens,
+            temperature: settings.temperature,
+            top_p: settings.topP,
+            category: category,
+            count: need,
+            batch_size: need
+          }),
+        });
+        appendLog('请求已发送，等待响应...');
+        const data = await response.json();
+        appendLog('收到响应：' + JSON.stringify(data));
+        if (response.ok) {
+          if (Array.isArray(data.stories)) {
+            // 合并去重
+            let newStories = data.stories.filter(s => !collected.some(c => c.title === s.title));
+            collected = [...collected, ...newStories];
+            duplicate = [...duplicate, ...(data.duplicate || [])];
+            progressLogs.push(`第${attempt + 1}批：采集${newStories.length}条，重复${(data.duplicate || []).length}条`);
+            setProgress(p => ({...p, current: attempt + 1, total: Math.ceil(total / batch), logs: [...progressLogs]}));
+            if (newStories.length === 0) break; // AI返回空数组，提前结束
+          } else if (data.message && data.message.includes('有效收集数量不足')) {
+            setError('有效收集数量不足，建议更换提示词或缩小范围。');
+            setSuccess('');
+            appendLog(data.message);
+            break;
+          } else if (data.duplicate) {
+            setError('故事已存在，未保存');
+            setSuccess('');
+            onStoryGenerated();
+            break;
+          } else {
+            setSuccess('故事收集成功！');
+            setPrompt('');
+            setError('');
+            onStoryGenerated();
+            break;
+          }
         } else {
-          setSuccess('故事收集成功！');
-          setPrompt('');
-          setError('');
-          onStoryGenerated();
+          setError(data.error || '故事收集失败');
+          break;
         }
-      } else {
-        setError(data.error || '故事收集失败');
+        attempt++;
       }
+      setSuccess(`收集完成，已保存${collected.length}条，重复${duplicate.length}条`);
+      appendLog('采集完成。');
+      onStoryGenerated(collected);
     } catch (error) {
       setError('故事收集失败：' + error.message);
       appendLog('采集失败：' + error.message);
@@ -127,7 +148,6 @@ function StoryCollector({ onStoryGenerated = () => {}, categories = [] }) {
         <Typography variant="h6" gutterBottom>
           故事采集
         </Typography>
-
         <Grid container spacing={3}>
           <Grid item xs={12} sm={6}>
             <FormControl fullWidth>
@@ -143,7 +163,7 @@ function StoryCollector({ onStoryGenerated = () => {}, categories = [] }) {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={6} sm={3}>
             <TextField
               fullWidth
               type="number"
@@ -151,6 +171,16 @@ function StoryCollector({ onStoryGenerated = () => {}, categories = [] }) {
               value={count}
               onChange={e => setCount(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
               inputProps={{ min: 1, max: 100 }}
+            />
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <TextField
+              fullWidth
+              type="number"
+              label="每批数量"
+              value={batchSize}
+              onChange={e => setBatchSize(Math.max(1, Math.min(50, Number(e.target.value) || 20)))}
+              inputProps={{ min: 1, max: 50 }}
             />
           </Grid>
           <Grid item xs={12}>
@@ -164,7 +194,6 @@ function StoryCollector({ onStoryGenerated = () => {}, categories = [] }) {
               placeholder="请输入故事主题或提示词，例如：'写一个关于友谊的成语故事'"
             />
           </Grid>
-
           <Grid item xs={12}>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               <Chip
@@ -184,7 +213,6 @@ function StoryCollector({ onStoryGenerated = () => {}, categories = [] }) {
               />
             </Box>
           </Grid>
-
           <Grid item xs={12}>
             <Button
               variant="contained"
@@ -193,29 +221,32 @@ function StoryCollector({ onStoryGenerated = () => {}, categories = [] }) {
               startIcon={collecting ? <CircularProgress size={20} /> : null}
               fullWidth
             >
-              {collecting ? '收集中...' : '收集故事'}
+              {collecting ? `分批收集中...（第${progress.current}/${progress.total}批）` : '收集故事'}
             </Button>
           </Grid>
         </Grid>
-
+        {progress.logs && progress.logs.length > 0 && (
+          <Box sx={{ mt: 2 }}>
+            <Alert severity="info">
+              {progress.logs.map((l, i) => <div key={i}>{l}</div>)}
+            </Alert>
+          </Box>
+        )}
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
             {error}
           </Alert>
         )}
-
         {success && (
           <Alert severity="success" sx={{ mt: 2 }}>
             {success}
           </Alert>
         )}
-
         {!settings && (
           <Alert severity="warning" sx={{ mt: 2 }}>
             请先在设置中配置API和模型
           </Alert>
         )}
-
         {/* 日志区域 */}
         <Box sx={{ mt: 2 }}>
           <Button size="small" onClick={() => setLogOpen(v => !v)}>

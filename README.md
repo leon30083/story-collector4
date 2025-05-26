@@ -1,3 +1,40 @@
+# 故事整理系统 - Windows本地快速部署
+
+## 环境要求
+- Python 3.8+
+- Node.js 16+（含npm）
+
+## 一键启动
+1. 双击 `start_all.bat`
+2. 前端访问：http://localhost:3000
+3. 后端API：http://localhost:5000
+
+## 手动启动（可选）
+### 后端
+```
+cd backend
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+python app.py
+```
+### 前端
+```
+cd frontend
+npm install
+npm start
+```
+
+## 常见问题
+- **端口被占用**：修改`app.py`或`package.json`中的端口配置。
+- **数据库丢失**：删除`stories.db`后重启后端会自动新建。
+- **依赖安装慢**：可用国内镜像源（如`pip install -i https://pypi.tuna.tsinghua.edu.cn/simple`）。
+
+## 进阶（可选）
+- 前端打包：`npm run build`，可用Nginx等托管静态文件。
+- 后端用`pyinstaller`打包为exe（适合无Python环境用户）。
+- 也可用Docker一键部署（如有需求可再详细指导）。
+
 # 儿童绘本故事收集系统
 
 这是一个用于收集和整理儿童绘本故事题材的Web应用程序。

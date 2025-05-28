@@ -18,4 +18,4 @@ echo =========================
 echo 前后端已分别启动！
 echo 后端: http://localhost:5000
 echo 前端: http://localhost:3000
-pause 
+pause

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Paper, Typography, TextField, MenuItem, Button, Grid, Chip, CircularProgress, Alert } from '@mui/material';
+import { saveStory } from '../utils/localStory';
 
 const mockStylesData = [
   { id: '1', name: '沉静幻想型', age: '5-9岁', theme: ['夜间冒险', '记忆', '时空穿越'], template: ['那天夜里，{theme}在森林中醒来。', '他静静地走着，周围只有风的声音。'] },
@@ -116,9 +117,17 @@ export default function StoryCreationForm({ onConfirm, onCancel }) {
     }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onConfirm && onConfirm({ theme, style, age, lang, words });
+  const handleConfirm = () => {
+    const story = {
+      theme,
+      style: style,
+      age,
+      lang,
+      words,
+      pages: [],
+    };
+    const id = saveStory(story);
+    if (onConfirm) onConfirm({ ...story, id });
   };
 
   return (
@@ -145,7 +154,7 @@ export default function StoryCreationForm({ onConfirm, onCancel }) {
         </Typography>
       )}
       {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleConfirm}>
         <TextField
           label="故事主题"
           value={theme}
@@ -214,7 +223,7 @@ export default function StoryCreationForm({ onConfirm, onCancel }) {
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
           <Button onClick={onCancel} disabled={loading}>取消</Button>
           <Button variant="outlined" color="secondary" onClick={handleAIGenerate} disabled={loading} startIcon={loading && <CircularProgress size={18} />}>AI一键生成</Button>
-          <Button type="submit" variant="contained" disabled={loading}>确认</Button>
+          <Button type="submit" variant="contained" disabled={loading} onClick={handleConfirm}>确认</Button>
         </Box>
       </form>
     </Paper>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, AppBar, Toolbar, Typography, Button, Paper, InputBase, IconButton, Grid, Checkbox, Pagination, Dialog, TextField, MenuItem } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -9,6 +9,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import DownloadIcon from '@mui/icons-material/Download';
 import StoryUpload from './StoryUpload';
 import CategoryManager from './CategoryManager';
+import { listStories } from '../utils/localStory';
 
 // mock数据
 const mockStories = [
@@ -75,7 +76,7 @@ function StoryCard({ story, selected, onSelect, onEdit, onDelete, onExport, onDe
 }
 
 export default function StoryLibraryPage() {
-  const [stories, setStories] = useState(mockStories);
+  const [stories, setStories] = useState([]);
   const [selected, setSelected] = useState([]);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -98,13 +99,20 @@ export default function StoryLibraryPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editStory, setEditStory] = useState(null);
 
+  useEffect(() => {
+    // 读取本地所有故事
+    const localStories = listStories();
+    // 如有后端API，也可合并后端数据
+    setStories(localStories);
+  }, []);
+
   // 筛选逻辑
   const filteredStories = stories.filter(
     s =>
-      (category === '' || s.theme === category) &&
-      (s.title.includes(search) ||
-        s.author.includes(search) ||
-        s.theme.includes(search))
+      (category === '' || (s.theme || '').includes(category)) &&
+      (((s.title || '').includes(search)) ||
+       ((s.author || '').includes(search)) ||
+       ((s.theme || '').includes(search)))
   );
 
   // 分页逻辑

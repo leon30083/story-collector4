@@ -1,0 +1,8 @@
+[
+  {
+    "id": "cartoon_v1",
+    "name": "卡通风",
+    "desc": "明亮活泼的卡通插画风格，适合低龄儿童故事",
+    "prompt": "A bright and lively cartoon illustration of {scene}, bold lines, vivid colors, for a children's picture book"
+  }
+] 

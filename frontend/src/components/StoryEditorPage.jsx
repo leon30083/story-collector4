@@ -6,6 +6,8 @@ import StoryPageEditor from './StoryPageEditor';
 import StyleRecommendation from './StyleRecommendation';
 import EditorHistoryLog from './EditorHistoryLog';
 import { Typography } from '@mui/material';
+import ScenePromptPage from './ScenePromptPage';
+import { saveStory } from '../utils/localStory';
 
 // mock story数据结构
 const mockStory = {
@@ -26,9 +28,9 @@ export default function StoryEditorPage({ onBack, initParams }) {
         age: initParams.age || '',
         lang: initParams.lang || 'zh',
         words: initParams.words || 600,
-        pages: [
-          { page_no: 1, text_cn: '', text_en: '', image_hint: '' },
-        ],
+        pages: Array.isArray(initParams.pages) && initParams.pages.length > 0
+          ? initParams.pages
+          : [{ page_no: 1, text_cn: '', text_en: '', image_hint: '' }],
       }
     : mockStory;
   const [story, setStory] = useState(initialStory);
@@ -41,11 +43,17 @@ export default function StoryEditorPage({ onBack, initParams }) {
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [batchText, setBatchText] = useState('');
   const fileInputRef = useRef();
+  const [step, setStep] = useState(0);
 
   // 支持 initParams 变化时刷新 story
   useEffect(() => {
     if (initParams) {
-      setStory(initParams);
+      setStory({
+        ...initParams,
+        pages: Array.isArray(initParams.pages) && initParams.pages.length > 0
+          ? initParams.pages
+          : [{ page_no: 1, text_cn: '', text_en: '', image_hint: '' }],
+      });
     }
   }, [initParams]);
 
@@ -147,6 +155,27 @@ export default function StoryEditorPage({ onBack, initParams }) {
     }
   };
 
+  // 下一步进入分镜头提示词流程
+  const handleNext = () => setStep(1);
+  // 上一步返回文稿编辑
+  const handleBack = () => setStep(0);
+  // 分镜头流程完成后的回调
+  const handleScenePromptsNext = (pagesWithPrompts) => {
+    setStory({ ...story, pages: pagesWithPrompts });
+    // 可在此处继续后续流程，如导出、提交等
+  };
+
+  // 在AI生成文稿后（如pages更新后），自动保存到本地
+  useEffect(() => {
+    if (story && Array.isArray(story.pages) && story.pages.length > 0) {
+      saveStory(story);
+    }
+  }, [story.pages]);
+
+  if (step === 1) {
+    return <ScenePromptPage story={story} onBack={handleBack} onNext={handleScenePromptsNext} />;
+  }
+
   return (
     <Paper sx={{ p: 2, minHeight: '80vh' }}>
       <EditorToolbar
@@ -167,7 +196,7 @@ export default function StoryEditorPage({ onBack, initParams }) {
         </Grid>
         <Grid item xs={6}>
           {/* 多页编辑区 */}
-          {story.pages.map((page, idx) => (
+          {Array.isArray(story.pages) && story.pages.map((page, idx) => (
             <Box key={idx} sx={{ mb: 3, border: idx === currentPage ? '2px solid #1976d2' : '1px solid #eee', borderRadius: 2, p: 2 }}>
               <Typography variant="subtitle1" sx={{ mb: 1 }}>第{idx + 1}页</Typography>
               <TextField
@@ -278,6 +307,7 @@ export default function StoryEditorPage({ onBack, initParams }) {
         </DialogActions>
       </Dialog>
       <Snackbar open={snackbar.open} autoHideDuration={2000} onClose={() => setSnackbar({ ...snackbar, open: false })} message={snackbar.message} />
+      <button onClick={handleNext} style={{ marginTop: 24 }}>下一步（分镜头提示词）</button>
     </Paper>
   );
 } 

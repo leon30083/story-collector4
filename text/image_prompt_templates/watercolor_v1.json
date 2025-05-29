@@ -1,0 +1,8 @@
+[
+  {
+    "id": "watercolor_v1",
+    "name": "水彩风",
+    "desc": "温暖柔和的水彩画风格，适合童话故事",
+    "prompt": "A warm watercolor illustration of {scene}, soft light, dreamy, for a children's picture book"
+  }
+] 

@@ -12,7 +12,6 @@ import json
 import re
 import logging
 from io import BytesIO
-from openai import OpenAI
 
 # 配置日志
 logging.basicConfig(
@@ -674,11 +673,11 @@ def generate_picturebook():
 4. 输出格式必须为如下JSON数组，每个元素为一页：
 [
   {{
-    "page_no": 1,
-    "text_cn": "第一页中文内容",
-    "text_en": "Page 1 English content",
-    "image_hint": "插图建议",
-    "style_id": "{style_id}"
+    \"page_no\": 1,
+    \"text_cn\": \"第一页中文内容\",
+    \"text_en\": \"Page 1 English content\",
+    \"image_hint\": \"插图建议\",
+    \"style_id\": \"{style_id}\"
   }},
   ...
 ]
@@ -689,24 +688,31 @@ def generate_picturebook():
     if is_classic:
         prompt_user += ' 该主题为经典神话/寓言/民间故事，请严格遵循经典改编手册的分段与表达规范。'
 
-    client = OpenAI(
-        api_key=os.getenv('SILICON_API_KEY'),
-        base_url="https://api.siliconflow.cn/v1"
-    )
+    api_key = os.getenv('SILICON_API_KEY')
+    model = "deepseek-ai/DeepSeek-V3"  # 或你系统默认模型
+    messages = [
+        {"role": "system", "content": prompt_system},
+        {"role": "user", "content": prompt_user}
+    ]
     try:
-        response = client.chat.completions.create(
-            model="deepseek-ai/DeepSeek-V3",
-            messages=[
-                {"role": "system", "content": prompt_system},
-                {"role": "user", "content": prompt_user}
-            ],
-            temperature=0.7,
-            max_tokens=2048,
-            response_format={"type": "json_object"}
+        response = requests.post(
+            'https://api.siliconflow.cn/v1/chat/completions',
+            headers={'Authorization': f'Bearer {api_key}'},
+            json={
+                'model': model,
+                'messages': messages,
+                'max_tokens': 2048,
+                'temperature': 0.7,
+                'top_p': 0.7
+            }
         )
-        content = response.choices[0].message.content
-        # 解析JSON
+        response.raise_for_status()
+        result = response.json()
+        content = result['choices'][0]['message'].get('content', '')
         pages = json.loads(content)
+        # 确保所有页的 style_id 一致
+        for page in pages:
+            page['style_id'] = style_id
         return jsonify({
             "title": theme,
             "style_id": style_id,
@@ -724,6 +730,50 @@ def serve_text(filename):
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     text_dir = os.path.join(base_dir, 'text')
     return send_from_directory(text_dir, filename)
+
+PROMPT_TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), '../text/image_prompt_templates')
+
+def load_prompt_templates():
+    templates = []
+    for fname in os.listdir(PROMPT_TEMPLATE_DIR):
+        if fname.endswith('.json'):
+            with open(os.path.join(PROMPT_TEMPLATE_DIR, fname), 'r', encoding='utf-8') as f:
+                templates.extend(json.load(f))
+    return templates
+
+@app.route('/api/prompt-templates', methods=['GET'])
+def get_prompt_templates():
+    templates = load_prompt_templates()
+    return jsonify(templates)
+
+@app.route('/api/generate-image-prompts', methods=['POST'])
+def generate_image_prompts():
+    data = request.json
+    scenes = data.get('scenes', [])  # [{"scene_id": 1, "text": "..."}, ...]
+    template_id = data.get('template_id')
+    templates = load_prompt_templates()
+    template = next((t for t in templates if t['id'] == template_id), None)
+    if not template:
+        return jsonify({'error': 'Template not found'}), 400
+    # 这里模拟大模型调用，实际可集成OpenAI等API
+    results = []
+    for scene in scenes:
+        prompt = template['prompt'].replace('{scene}', scene['text'])
+        results.append({
+            'scene_id': scene['scene_id'],
+            'image_prompt': prompt,
+            'template_id': template_id
+        })
+    return jsonify(results)
+
+@app.route('/api/update-scene-prompt', methods=['PUT'])
+def update_scene_prompt():
+    # 这里只做示例，实际应写入数据库
+    data = request.json
+    scene_id = data.get('scene_id')
+    custom_prompt = data.get('custom_prompt')
+    # 假设已保存成功
+    return jsonify({'scene_id': scene_id, 'custom_prompt': custom_prompt, 'status': 'updated'})
 
 if __name__ == '__main__':
     app.run(debug=True) 

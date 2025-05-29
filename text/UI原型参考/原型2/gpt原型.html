@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>绘本制作工具原型</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+  <!-- Sidebar -->
+  <div class="flex h-screen">
+    <aside class="w-64 bg-gray-800 text-white flex flex-col">
+      <div class="p-4 text-2xl font-bold">AI 绘本</div>
+      <nav class="flex-1">
+        <ul>
+          <li class="p-3 hover:bg-gray-700"><a href="#">仪表盘</a></li>
+          <li class="p-3 hover:bg-gray-700"><a href="#">项目</a></li>
+          <li class="p-3 hover:bg-gray-700"><a href="#">素材</a></li>
+          <li class="p-3 hover:bg-gray-700"><a href="#">设置</a></li>
+        </ul>
+      </nav>
+      <div class="p-4 text-sm">版本 1.0.0</div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-auto p-6">
+      <!-- 1. Dashboard -->
+      <section id="dashboard">
+        <h1 class="text-3xl font-semibold mb-4">仪表盘</h1>
+        <div class="grid grid-cols-3 gap-4">
+          <!-- Project cards -->
+          <div class="bg-white shadow rounded p-4">
+            <h2 class="text-xl font-medium">勇敢的小兔子</h2>
+            <p class="text-sm text-gray-600">4-5 岁 · 12 页</p>
+            <div class="w-full bg-gray-200 h-2 rounded mt-2">
+              <div class="bg-blue-500 h-2 rounded" style="width: 40%;"></div>
+            </div>
+            <p class="mt-2 text-sm">进行中</p>
+          </div>
+          <!-- Repeat cards... -->
+        </div>
+      </section>
+
+      <!-- 2. Project Detail -->
+      <section id="project-detail" class="mt-12">
+        <h1 class="text-3xl font-semibold mb-4">项目：勇敢的小兔子</h1>
+        <p class="mb-6">年龄段：4-5 岁 | 页数：12</p>
+        <h2 class="text-2xl mb-2">场景列表</h2>
+        <div class="grid grid-cols-4 gap-4">
+          <button class="col-span-1 bg-white border-dashed border-2 border-gray-300 rounded h-32 flex items-center justify-center text-gray-500">+ 添加场景</button>
+          <div class="bg-white shadow rounded p-4">
+            <h3 class="font-medium">在草地上</h3>
+            <p class="text-sm text-gray-600 mt-1">兔子在阳光草地上玩耍。</p>
+            <button class="text-blue-500 text-sm mt-2">编辑</button>
+          </div>
+          <!-- 更多场景卡片 -->
+        </div>
+      </section>
+
+      <!-- 3. Scene Editor -->
+      <section id="scene-editor" class="mt-12">
+        <h1 class="text-3xl font-semibold mb-4">编辑场景：在草地上</h1>
+        <div class="flex gap-6">
+          <!-- Text Editor -->
+          <div class="w-1/2 bg-white shadow rounded p-4">
+            <h2 class="text-xl mb-2">脚本编辑</h2>
+            <textarea class="w-full h-40 border border-gray-300 rounded p-2" placeholder="中文旁白..."></textarea>
+            <textarea class="w-full h-40 border border-gray-300 rounded p-2 mt-4" placeholder="English narration..."></textarea>
+          </div>
+          <!-- Prompt & Preview -->
+          <div class="w-1/2 bg-white shadow rounded p-4 flex flex-col">
+            <h2 class="text-xl mb-2">提示词 & 预览</h2>
+            <textarea class="w-full h-32 border border-gray-300 rounded p-2" placeholder="AI 提示词..."></textarea>
+            <div class="mt-4 flex-1 bg-gray-100 rounded flex items-center justify-center text-gray-500">图像预览区</div>
+            <button class="mt-4 bg-blue-500 text-white py-2 rounded">生成图片</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Asset Library -->
+      <section id="asset-library" class="mt-12">
+        <h1 class="text-3xl font-semibold mb-4">素材库</h1>
+        <div class="grid grid-cols-6 gap-4">
+          <!-- Asset thumbnails -->
+          <div class="bg-white shadow rounded p-2">
+            <div class="h-24 bg-gray-200 rounded"></div>
+            <p class="text-sm mt-2 text-center">参考图1.png</p>
+          </div>
+          <!-- 更多素材 -->
+        </div>
+      </section>
+    </main>
+  </div>
+
+</body>
+</html>

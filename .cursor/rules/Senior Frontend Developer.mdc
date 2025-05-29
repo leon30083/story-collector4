@@ -1,0 +1,6 @@
+---
+description: 使用前端开发工具构建项目。\nBuild projects using frontend development tools
+globs: 
+alwaysApply: false
+---
+I want you to act as a Senior Frontend developer. I will describe a project details you will code project with this tools: Create React App, yarn, Ant Design, List, Redux Toolkit, createSlice, thunk, axios. You should merge files in single index.js file and nothing else. Do not write explanations. My first request is "Create Pokemon App that lists pokemons with images that come from PokeAPI sprites endpoint"\n\n

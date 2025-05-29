@@ -1,11 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Box, Paper, Grid, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Snackbar } from '@mui/material';
+import { Box, Paper, Grid, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Snackbar, MenuItem, Typography } from '@mui/material';
 import EditorToolbar from './EditorToolbar';
 import StoryStructureTree from './StoryStructureTree';
 import StoryPageEditor from './StoryPageEditor';
-import StyleRecommendation from './StyleRecommendation';
 import EditorHistoryLog from './EditorHistoryLog';
-import { Typography } from '@mui/material';
 import ScenePromptPage from './ScenePromptPage';
 import { saveStory } from '../utils/localStory';
 
@@ -19,21 +17,8 @@ const mockStory = {
   ],
 };
 
-export default function StoryEditorPage({ onBack, initParams }) {
-  // 根据initParams初始化story
-  const initialStory = initParams
-    ? {
-        title: initParams.theme || '新故事',
-        style_id: initParams.style || '',
-        age: initParams.age || '',
-        lang: initParams.lang || 'zh',
-        words: initParams.words || 600,
-        pages: Array.isArray(initParams.pages) && initParams.pages.length > 0
-          ? initParams.pages
-          : [{ page_no: 1, text_cn: '', text_en: '', image_hint: '' }],
-      }
-    : mockStory;
-  const [story, setStory] = useState(initialStory);
+export default function StoryEditorPage({ onBack, initParams, onSaved }) {
+  const [story, setStory] = useState(initParams || { title: '', author: '', theme: '', age: '', style_id: '', pages: [{ page_no: 1, text_cn: '', text_en: '', image_hint: '' }] });
   const [currentPage, setCurrentPage] = useState(0);
   const [history, setHistory] = useState([]);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -44,28 +29,42 @@ export default function StoryEditorPage({ onBack, initParams }) {
   const [batchText, setBatchText] = useState('');
   const fileInputRef = useRef();
   const [step, setStep] = useState(0);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [styles, setStyles] = useState([]);
 
-  // 支持 initParams 变化时刷新 story
   useEffect(() => {
-    if (initParams) {
-      setStory({
-        ...initParams,
-        pages: Array.isArray(initParams.pages) && initParams.pages.length > 0
-          ? initParams.pages
-          : [{ page_no: 1, text_cn: '', text_en: '', image_hint: '' }],
-      });
-    }
-  }, [initParams]);
+    fetch('/text/ai_picturebook_styles.json')
+      .then(res => res.json())
+      .then(data => {
+        const arr = Object.entries(data).map(([id, v]) => ({ id, ...v }));
+        setStyles(arr);
+      })
+      .catch(() => setStyles([]));
+  }, []);
 
-  // 切换页
-  const handleSelectPage = (idx) => setCurrentPage(idx);
+  // 顶部属性区操作
+  const handleMetaChange = (field, value) => {
+    setStory(prev => ({ ...prev, [field]: value }));
+  };
+  const handleSave = () => {
+    saveStory(story);
+    setSnackbar({ open: true, message: '保存成功', severity: 'success' });
+    if (onSaved) onSaved();
+  };
+  const handleAIGenerate = () => {
+    // TODO: AI生成逻辑
+    setSnackbar({ open: true, message: 'AI生成文稿功能待接入', severity: 'info' });
+  };
+  const handleNext = () => {
+    setSnackbar({ open: true, message: '分镜头提示词功能待接入', severity: 'info' });
+  };
 
-  // 编辑当前页内容
-  const handleEditPage = (field, value) => {
+  // 页内容编辑
+  const handleEditPage = (idx, field, value) => {
     const newPages = [...story.pages];
-    newPages[currentPage] = { ...newPages[currentPage], [field]: value };
+    newPages[idx] = { ...newPages[idx], [field]: value };
     setStory({ ...story, pages: newPages });
-    setHistory([...history, { type: 'edit', page: currentPage, field, value }]);
+    setHistory([...history, { type: 'edit', page: idx, field, value }]);
   };
 
   // 全局风格切换，所有页同步
@@ -156,10 +155,6 @@ export default function StoryEditorPage({ onBack, initParams }) {
   };
 
   // 下一步进入分镜头提示词流程
-  const handleNext = () => setStep(1);
-  // 上一步返回文稿编辑
-  const handleBack = () => setStep(0);
-  // 分镜头流程完成后的回调
   const handleScenePromptsNext = (pagesWithPrompts) => {
     setStory({ ...story, pages: pagesWithPrompts });
     // 可在此处继续后续流程，如导出、提交等
@@ -173,82 +168,52 @@ export default function StoryEditorPage({ onBack, initParams }) {
   }, [story.pages]);
 
   if (step === 1) {
-    return <ScenePromptPage story={story} onBack={handleBack} onNext={handleScenePromptsNext} />;
+    return <ScenePromptPage story={story} onBack={() => setStep(0)} onNext={handleScenePromptsNext} />;
   }
 
   return (
     <Paper sx={{ p: 2, minHeight: '80vh' }}>
+      {/* 顶部属性区 */}
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2 }}>
+        <Button onClick={onBack} variant="outlined">返回故事库</Button>
+        <Button variant="contained" color="primary" onClick={handleSave}>保存</Button>
+        <Button variant="outlined" color="secondary" onClick={handleAIGenerate}>AI一键生成文稿</Button>
+        <Button variant="outlined" onClick={handleNext}>下一步（分镜头提示词）</Button>
+        <TextField label="标题" value={story.title || ''} onChange={e => handleMetaChange('title', e.target.value)} size="small" sx={{ minWidth: 120 }} />
+        <TextField label="作者" value={story.author || ''} onChange={e => handleMetaChange('author', e.target.value)} size="small" sx={{ minWidth: 100 }} />
+        <TextField label="主题" value={story.theme || ''} onChange={e => handleMetaChange('theme', e.target.value)} size="small" sx={{ minWidth: 100 }} />
+        <TextField label="适龄" value={story.age || ''} onChange={e => handleMetaChange('age', e.target.value)} size="small" sx={{ minWidth: 80 }} />
+        <TextField select label="风格" value={story.style_id || ''} onChange={e => handleApplyStyle(e.target.value)} size="small" sx={{ minWidth: 120 }}>
+          <MenuItem value="">不限</MenuItem>
+          {styles.map(opt => (
+            <MenuItem key={opt.id} value={opt.id}>{opt.name}</MenuItem>
+          ))}
+        </TextField>
+      </Box>
       <EditorToolbar
-        onBack={onBack}
         onExportMarkdown={handleExportMarkdown}
         onImportMarkdown={() => setImportDialogOpen(true)}
         onBatchSplit={() => setBatchDialogOpen(true)}
       />
       <Grid container spacing={2}>
-        <Grid item xs={2}>
+        <Grid item xs={2} sx={{ position: 'sticky', top: 0, alignSelf: 'flex-start', height: '80vh', overflowY: 'auto', zIndex: 2 }}>
           <StoryStructureTree
             pages={story.pages}
             currentPage={currentPage}
-            onSelectPage={handleSelectPage}
+            onSelectPage={setCurrentPage}
             onInsertPage={handleInsertPage}
             onDeletePage={handleDeletePage}
           />
         </Grid>
-        <Grid item xs={6}>
-          {/* 多页编辑区 */}
-          {Array.isArray(story.pages) && story.pages.map((page, idx) => (
+        <Grid item xs={10}>
+          {story.pages.map((page, idx) => (
             <Box key={idx} sx={{ mb: 3, border: idx === currentPage ? '2px solid #1976d2' : '1px solid #eee', borderRadius: 2, p: 2 }}>
               <Typography variant="subtitle1" sx={{ mb: 1 }}>第{idx + 1}页</Typography>
-              <TextField
-                label="中文内容"
-                value={page.text_cn}
-                multiline
-                minRows={3}
-                fullWidth
-                onChange={e => {
-                  const newPages = [...story.pages];
-                  newPages[idx].text_cn = e.target.value;
-                  setStory({ ...story, pages: newPages });
-                }}
-                sx={{ mb: 1 }}
-              />
-              <TextField
-                label="英文内容"
-                value={page.text_en}
-                multiline
-                minRows={2}
-                fullWidth
-                onChange={e => {
-                  const newPages = [...story.pages];
-                  newPages[idx].text_en = e.target.value;
-                  setStory({ ...story, pages: newPages });
-                }}
-                sx={{ mb: 1 }}
-              />
-              <TextField
-                label="配图建议"
-                value={page.image_hint}
-                multiline
-                minRows={2}
-                fullWidth
-                onChange={e => {
-                  const newPages = [...story.pages];
-                  newPages[idx].image_hint = e.target.value;
-                  setStory({ ...story, pages: newPages });
-                }}
-              />
-              <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
-                <Button onClick={() => handleInsertPage(idx + 1)}>在后面插入新页</Button>
-                <Button onClick={() => handleDeletePage(idx)} color="error">删除本页</Button>
-              </Box>
+              <TextField label="中文内容" value={page.text_cn} multiline minRows={3} fullWidth onChange={e => handleEditPage(idx, 'text_cn', e.target.value)} sx={{ mb: 1 }} />
+              <TextField label="英文内容" value={page.text_en} multiline minRows={2} fullWidth onChange={e => handleEditPage(idx, 'text_en', e.target.value)} sx={{ mb: 1 }} />
+              <TextField label="配图建议" value={page.image_hint} multiline minRows={2} fullWidth onChange={e => handleEditPage(idx, 'image_hint', e.target.value)} />
             </Box>
           ))}
-        </Grid>
-        <Grid item xs={4}>
-          <StyleRecommendation
-            currentStyleId={story.style_id}
-            onApplyStyle={handleApplyStyle}
-          />
         </Grid>
       </Grid>
       <Box sx={{ mt: 2 }}>
@@ -307,7 +272,6 @@ export default function StoryEditorPage({ onBack, initParams }) {
         </DialogActions>
       </Dialog>
       <Snackbar open={snackbar.open} autoHideDuration={2000} onClose={() => setSnackbar({ ...snackbar, open: false })} message={snackbar.message} />
-      <button onClick={handleNext} style={{ marginTop: 24 }}>下一步（分镜头提示词）</button>
     </Paper>
   );
 } 

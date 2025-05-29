@@ -6,12 +6,15 @@ import StoryList from './components/StoryList';
 import StoryCollector from './components/StoryCollector';
 import Settings from './components/Settings';
 import CategoryManager from './components/CategoryManager';
+import APISettingsModal from './components/APISettingsModal';
+import MainFlow from './components/MainFlow';
 
 function App() {
   const [page, setPage] = useState('library'); // 'library' or 'legacy'
   const [stories, setStories] = useState([]);
   const [categories, setCategories] = useState([]);
   const [batches, setBatches] = useState([]);
+  const [apiSettingsOpen, setApiSettingsOpen] = useState(false);
 
   // 获取分类列表
   const fetchCategories = async () => {
@@ -68,11 +71,18 @@ function App() {
   }, []);
 
   return (
-    <Container maxWidth="lg">
+    <Container maxWidth="false" disableGutters>
+      <MainFlow />
+      {/*
       <Box sx={{ my: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom align="center">
-          儿童绘本故事收集系统
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h4" component="h1" gutterBottom align="center">
+            儿童绘本故事收集系统
+          </Typography>
+          <Button variant="outlined" color="primary" onClick={() => setApiSettingsOpen(true)}>
+            API设置
+          </Button>
+        </Box>
         <ButtonGroup sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
           <Button
             variant={page === 'library' ? 'contained' : 'outlined'}
@@ -87,7 +97,7 @@ function App() {
             原功能页
           </Button>
         </ButtonGroup>
-        {page === 'library' && <StoryLibraryPage />}
+        {page === 'library' && <StoryLibraryPage onOpenApiSettings={() => setApiSettingsOpen(true)} />}
         {page === 'legacy' && (
           <>
             <Box sx={{ mb: 4 }}>
@@ -112,7 +122,9 @@ function App() {
             </Box>
           </>
         )}
+        <APISettingsModal visible={apiSettingsOpen} onClose={() => setApiSettingsOpen(false)} />
       </Box>
+      */}
     </Container>
   );
 }

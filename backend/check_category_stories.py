@@ -1,7 +1,11 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+import os
 
-engine = create_engine('sqlite:///stories.db')
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+db_path = os.path.join(BASE_DIR, 'data', 'stories.db')
+
+engine = create_engine(f'sqlite:///{db_path}')
 Session = sessionmaker(bind=engine)
 session = Session()
 

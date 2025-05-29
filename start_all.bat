@@ -12,6 +12,7 @@ cd ..
 REM 启动前端
 cd frontend
 call npm install
+call npm install axios
 start cmd /k "npm start"
 cd ..
 echo =========================

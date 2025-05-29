@@ -1,0 +1,322 @@
+<!-- 项目仪表盘 -->
+<div class="min-h-screen bg-gray-50 p-8">
+  <header class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold">项目仪表盘</h1>
+    <div class="flex space-x-2">
+      <input class="border rounded px-2 py-1" placeholder="搜索项目..." />
+      <button class="bg-blue-500 text-white px-4 py-1 rounded">新建项目</button>
+    </div>
+  </header>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="bg-white rounded shadow p-4 flex flex-col">
+      <div class="flex-1">
+        <div class="font-semibold text-lg">童话森林探险</div>
+        <div class="text-sm text-gray-500">场景数：8</div>
+        <div class="text-xs text-gray-400">最后编辑：2025-05-28</div>
+        <div class="mt-2 h-2 bg-gray-200 rounded">
+          <div class="h-2 bg-green-400 rounded" style="width:70%"></div>
+        </div>
+      </div>
+      <div class="flex justify-end space-x-2 mt-4">
+        <button class="text-blue-500">进入</button>
+        <button class="text-gray-400">重命名</button>
+        <button class="text-red-400">删除</button>
+      </div>
+    </div>
+    <!-- 更多项目卡片... -->
+  </div>
+  <div class="text-center text-gray-400 mt-12">暂无项目，点击新建</div>
+</div>
+
+<!-- 基础信息采集 -->
+<div class="max-w-4xl mx-auto bg-white rounded shadow p-8 mt-12">
+  <h2 class="text-xl font-bold mb-6">基础信息采集</h2>
+  <form class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+    <div>
+      <label class="block text-sm mb-1">主题</label>
+      <input class="w-full border rounded px-3 py-2" placeholder="请输入故事主题" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">关键词</label>
+      <input class="w-full border rounded px-3 py-2" placeholder="请输入关键词" />
+    </div>
+    <div>
+      <label class="block text-sm mb-1">适龄段</label>
+      <select class="w-full border rounded px-3 py-2">
+        <option>3-5 岁</option><option>5-8 岁</option><option>8-10 岁</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm mb-1">故事风格</label>
+      <select class="w-full border rounded px-3 py-2">
+        <option>温暖童话</option><option>幽默卡通</option><option>史诗奇幻</option>
+      </select>
+    </div>
+  </form>
+  <div class="mb-4">
+    <div class="font-semibold mb-2">风格模板</div>
+    <div class="flex space-x-4 overflow-x-auto pb-2">
+      <div class="w-40 flex-shrink-0 bg-gray-100 rounded p-2 cursor-pointer hover:ring-2 ring-blue-400">
+        <img src="https://placehold.co/120x80" class="rounded mb-1" />
+        <div class="text-sm text-center">温暖童话</div>
+      </div>
+      <div class="w-40 flex-shrink-0 bg-gray-100 rounded p-2 cursor-pointer">
+        <img src="https://placehold.co/120x80" class="rounded mb-1" />
+        <div class="text-sm text-center">史诗奇幻</div>
+      </div>
+      <!-- 更多风格卡片... -->
+    </div>
+  </div>
+  <div class="mt-6 text-right">
+    <button class="bg-blue-500 text-white px-6 py-2 rounded">下一步</button>
+  </div>
+</div>
+
+<!-- 故事文案生成与编辑 -->
+<div class="max-w-6xl mx-auto bg-white rounded shadow p-8 mt-12 flex">
+  <aside class="w-64 pr-8 border-r">
+    <div class="mb-4">
+      <label class="block text-sm mb-1">风格</label>
+      <select class="w-full border rounded px-2 py-1">
+        <option>温暖童话</option><option>史诗奇幻</option>
+      </select>
+    </div>
+    <div class="mb-4">
+      <label class="block text-sm mb-1">年龄</label>
+      <select class="w-full border rounded px-2 py-1">
+        <option>3-5 岁</option><option>5-8 岁</option>
+      </select>
+    </div>
+    <div class="mb-4">
+      <label class="block text-sm mb-1">主题</label>
+      <input class="w-full border rounded px-2 py-1" />
+    </div>
+    <div class="mb-4 flex items-center">
+      <input type="checkbox" class="mr-2" id="classic" />
+      <label for="classic" class="text-sm">经典改编</label>
+    </div>
+    <button class="bg-green-500 text-white w-full py-2 rounded">AI生成</button>
+  </aside>
+  <main class="flex-1 pl-8">
+    <div class="flex justify-between items-center mb-4">
+      <div class="space-x-2">
+        <button class="bg-blue-100 text-blue-600 px-3 py-1 rounded">保存</button>
+        <button class="bg-gray-100 px-3 py-1 rounded">历史版本</button>
+        <button class="bg-gray-100 px-3 py-1 rounded">导入/导出</button>
+      </div>
+      <span class="text-gray-400">AI生成中...</span>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <div class="font-semibold mb-1">中文脚本</div>
+        <textarea class="w-full h-64 border rounded p-2" placeholder="中文分段文本..."></textarea>
+      </div>
+      <div>
+        <div class="font-semibold mb-1">英文脚本</div>
+        <textarea class="w-full h-64 border rounded p-2" placeholder="English script..."></textarea>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- 分镜提示词生成与编辑 -->
+<div class="max-w-5xl mx-auto bg-white rounded shadow p-8 mt-12">
+  <h2 class="text-xl font-bold mb-4">分镜提示词编辑</h2>
+  <div class="mb-4 bg-gray-50 p-3 rounded">当前场景脚本锚点：<span class="text-gray-600">小兔子在森林中醒来...</span></div>
+  <div class="space-y-4">
+    <div class="flex items-center space-x-2">
+      <span class="w-20 text-gray-500">分镜1</span>
+      <input class="flex-1 border rounded px-2 py-1" placeholder="提示词..." />
+      <button class="bg-green-100 text-green-600 px-2 py-1 rounded">AI生成</button>
+      <button class="bg-gray-100 px-2 py-1 rounded">删除</button>
+      <span class="cursor-move text-gray-400">☰</span>
+    </div>
+    <div class="flex items-center space-x-2">
+      <span class="w-20 text-gray-500">分镜2</span>
+      <input class="flex-1 border rounded px-2 py-1" placeholder="提示词..." />
+      <button class="bg-green-100 text-green-600 px-2 py-1 rounded">AI生成</button>
+      <button class="bg-gray-100 px-2 py-1 rounded">删除</button>
+      <span class="cursor-move text-gray-400">☰</span>
+    </div>
+    <!-- 更多分镜行... -->
+  </div>
+  <div class="flex justify-between mt-6">
+    <div class="space-x-2">
+      <button class="bg-blue-100 px-3 py-1 rounded">全选</button>
+      <button class="bg-gray-100 px-3 py-1 rounded">批量删除</button>
+      <button class="bg-gray-100 px-3 py-1 rounded">导出</button>
+    </div>
+    <button class="bg-green-500 text-white px-6 py-2 rounded">一键AI生成全部</button>
+  </div>
+</div>
+
+<!-- 批量图像生成 -->
+<div class="max-w-5xl mx-auto bg-white rounded shadow p-8 mt-12">
+  <h2 class="text-xl font-bold mb-4">批量图像生成</h2>
+  <div class="flex justify-between mb-4">
+    <div class="space-x-2">
+      <button class="bg-blue-500 text-white px-3 py-1 rounded">全部生成</button>
+      <button class="bg-gray-100 px-3 py-1 rounded">全部重试</button>
+      <button class="bg-gray-100 px-3 py-1 rounded">全部下载</button>
+    </div>
+    <span class="text-gray-400">生成中...</span>
+  </div>
+  <div class="space-y-4">
+    <div class="flex items-center space-x-4 p-3 bg-gray-50 rounded">
+      <img src="https://placehold.co/80x60" class="rounded" />
+      <div class="flex-1">
+        <div class="h-2 bg-gray-200 rounded mb-1">
+          <div class="h-2 bg-green-400 rounded" style="width:60%"></div>
+        </div>
+        <div class="text-xs text-gray-500">状态：生成中</div>
+      </div>
+      <button class="bg-gray-100 px-2 py-1 rounded">重试</button>
+      <button class="bg-blue-100 px-2 py-1 rounded">下载</button>
+      <button class="bg-gray-100 px-2 py-1 rounded">日志</button>
+    </div>
+    <!-- 更多任务行... -->
+  </div>
+</div>
+
+<!-- 图像后处理（ComfyUI） -->
+<div class="max-w-6xl mx-auto bg-white rounded shadow p-8 mt-12 flex">
+  <aside class="w-64 pr-8 border-r">
+    <div class="mb-4 font-semibold">图片批次</div>
+    <div class="space-y-2 mb-4">
+      <img src="https://placehold.co/80x60" class="rounded border cursor-pointer" />
+      <img src="https://placehold.co/80x60" class="rounded border cursor-pointer" />
+      <!-- 更多图片缩略图... -->
+    </div>
+    <button class="bg-blue-100 w-full py-1 rounded mb-2">上传图片</button>
+    <button class="bg-gray-100 w-full py-1 rounded">替换图片</button>
+  </aside>
+  <main class="flex-1 pl-8">
+    <div class="flex justify-between items-center mb-4">
+      <div class="space-x-2">
+        <button class="bg-blue-500 text-white px-3 py-1 rounded">提交</button>
+        <button class="bg-gray-100 px-3 py-1 rounded">预览</button>
+        <button class="bg-gray-100 px-3 py-1 rounded">下载全部</button>
+      </div>
+      <span class="text-gray-400">处理进度：2/5</span>
+    </div>
+    <div class="bg-gray-100 rounded h-96 flex items-center justify-center text-gray-400">ComfyUI 节点编辑器区（拖拽/连线/参数）</div>
+  </main>
+</div>
+
+<!-- 资产管理与导出 -->
+<div class="max-w-6xl mx-auto bg-white rounded shadow p-8 mt-12">
+  <h2 class="text-xl font-bold mb-4">资产管理与导出</h2>
+  <div class="flex space-x-4 mb-4">
+    <select class="border rounded px-2 py-1"><option>全部类型</option></select>
+    <select class="border rounded px-2 py-1"><option>全部时间</option></select>
+    <select class="border rounded px-2 py-1"><option>全部状态</option></select>
+  </div>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-gray-50 rounded p-2 flex flex-col items-center">
+      <img src="https://placehold.co/100x80" class="rounded mb-2" />
+      <div class="text-sm mb-1">分镜1-原图</div>
+      <input type="checkbox" class="mb-2" />
+      <button class="bg-blue-100 px-2 py-1 rounded text-xs">预览</button>
+    </div>
+    <!-- 更多资源卡片... -->
+  </div>
+  <div class="flex space-x-2 mb-4">
+    <button class="bg-gray-100 px-3 py-1 rounded">批量操作</button>
+    <button class="bg-blue-500 text-white px-4 py-1 rounded">导出</button>
+  </div>
+  <div class="text-right text-gray-400">导出进度：0%</div>
+</div>
+
+<!-- 本地注释与版本回溯 -->
+<div class="max-w-4xl mx-auto bg-white rounded shadow p-8 mt-12">
+  <h2 class="text-xl font-bold mb-4">本地注释与版本回溯</h2>
+  <div class="mb-4">
+    <div class="flex items-center space-x-2">
+      <span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs">注释</span>
+      <span class="text-gray-600">小兔子在森林中醒来...</span>
+      <button class="bg-gray-100 px-2 py-1 rounded text-xs">编辑注释</button>
+    </div>
+    <!-- 更多注释行... -->
+  </div>
+  <div class="flex">
+    <div class="w-1/3 pr-4 border-r">
+      <div class="font-semibold mb-2">历史快照</div>
+      <ul class="space-y-2">
+        <li class="flex items-center justify-between">
+          <span>2025-05-28 10:00</span>
+          <button class="bg-blue-100 px-2 py-1 rounded text-xs">恢复</button>
+        </li>
+        <!-- 更多快照... -->
+      </ul>
+    </div>
+    <div class="flex-1 pl-4">
+      <div class="font-semibold mb-2">快照对比</div>
+      <div class="bg-gray-50 rounded p-2 h-32">对比内容区域...</div>
+    </div>
+  </div>
+</div>
+
+<!-- 辅助功能弹窗示例：提示词管理 -->
+<div class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+  <div class="bg-white w-1/2 rounded shadow p-8">
+    <h2 class="text-xl font-bold mb-4">提示词管理</h2>
+    <div class="flex space-x-4 mb-4">
+      <select class="border rounded px-2 py-1"><option>文稿提示词</option><option>分镜提示词</option></select>
+      <select class="border rounded px-2 py-1"><option>温暖童话</option><option>史诗奇幻</option></select>
+      <button class="bg-green-500 text-white px-3 py-1 rounded">+ 新增名称</button>
+    </div>
+    <textarea class="w-full h-32 border rounded p-2 mb-4" placeholder="管理当前分类/名称的提示词..."></textarea>
+    <div class="text-right space-x-2">
+      <button class="bg-gray-100 px-4 py-1 rounded">关闭</button>
+      <button class="bg-blue-500 text-white px-4 py-1 rounded">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 辅助功能弹窗示例：API与系统设置 -->
+<div class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+  <div class="bg-white w-1/3 rounded shadow p-8">
+    <h2 class="text-xl font-bold mb-4">API与系统设置</h2>
+    <div class="mb-4 flex space-x-2">
+      <button class="bg-blue-100 px-3 py-1 rounded">SiliconFlow</button>
+      <button class="bg-gray-100 px-3 py-1 rounded">豆包</button>
+      <button class="bg-gray-100 px-3 py-1 rounded">ComfyUI</button>
+    </div>
+    <div class="mb-4">
+      <label class="block text-sm mb-1">API Key</label>
+      <input class="w-full border rounded px-3 py-2" placeholder="请输入API Key" />
+    </div>
+    <div class="mb-4">
+      <label class="block text-sm mb-1">Endpoint</label>
+      <input class="w-full border rounded px-3 py-2" placeholder="https://api.example.com" />
+    </div>
+    <div class="mb-4">
+      <label class="block text-sm mb-1">参数</label>
+      <input class="w-full border rounded px-3 py-2" placeholder="模型、温度、Token等" />
+    </div>
+    <div class="flex justify-end space-x-2">
+      <button class="bg-gray-100 px-4 py-1 rounded">关闭</button>
+      <button class="bg-blue-500 text-white px-4 py-1 rounded">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 辅助功能弹窗示例：用户中心/积分/会员 -->
+<div class="fixed top-8 right-8 bg-white rounded shadow p-6 w-80 z-50">
+  <div class="flex items-center justify-between mb-4">
+    <div class="text-lg font-bold">用户中心</div>
+    <span class="bg-yellow-400 text-white px-2 py-1 rounded text-xs">会员</span>
+  </div>
+  <div class="mb-2">积分：<span class="font-semibold text-blue-600">196</span></div>
+  <div class="mb-2"><button class="bg-blue-100 px-3 py-1 rounded">开通会员</button></div>
+  <div class="mb-2 font-semibold">积分明细</div>
+  <ul class="text-sm text-gray-600 mb-2">
+    <li>2025-05-28 获得 10 积分</li>
+    <li>2025-05-27 消耗 5 积分</li>
+  </ul>
+  <div class="font-semibold mb-1">通知</div>
+  <ul class="text-sm">
+    <li class="flex items-center"><span class="w-2 h-2 bg-red-500 rounded-full mr-2"></span>新功能上线！</li>
+    <li>欢迎使用本工具</li>
+  </ul>
+</div> 

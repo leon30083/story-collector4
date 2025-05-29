@@ -1,6 +1,10 @@
 from sqlalchemy import create_engine, Column, String, MetaData, Table, text
+import os
 
-engine = create_engine('sqlite:///stories.db')
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+db_path = os.path.join(BASE_DIR, 'data', 'stories.db')
+
+engine = create_engine(f'sqlite:///{db_path}')
 metadata = MetaData()
 metadata.reflect(bind=engine)
 

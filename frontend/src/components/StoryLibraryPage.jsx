@@ -74,7 +74,7 @@ function StoryCard({ story, selected, onSelect, onEdit, onDelete, onExport, onDe
   );
 }
 
-export default function StoryLibraryPage() {
+export default function StoryLibraryPage({ onOpenApiSettings }) {
   const [stories, setStories] = useState(mockStories);
   const [selected, setSelected] = useState([]);
   const [search, setSearch] = useState('');
@@ -119,12 +119,6 @@ export default function StoryLibraryPage() {
     );
   };
 
-  // 数据获取（mock/后端API）
-  const fetchStories = async () => {
-    // TODO: 切换为真实API时替换此处
-    setStories(mockStories);
-  };
-
   // 批量删除
   const handleBatchDelete = () => {
     // TODO: 调用API删除selected故事
@@ -167,6 +161,7 @@ export default function StoryLibraryPage() {
           <Button startIcon={<CategoryIcon />} sx={{ mr: 1 }} onClick={() => setCategoryOpen(true)} color="secondary" variant="outlined">分类管理</Button>
           <Button startIcon={<UploadFileIcon />} sx={{ mr: 1 }} onClick={() => setImportOpen(true)} color="secondary" variant="outlined">导入</Button>
           <Button startIcon={<AddIcon />} variant="contained" color="primary" onClick={() => setCreateOpen(true)}>新建故事</Button>
+          <Button sx={{ ml: 2 }} variant="outlined" color="primary" onClick={onOpenApiSettings}>API设置</Button>
         </Toolbar>
       </AppBar>
 

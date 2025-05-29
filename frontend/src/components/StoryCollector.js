@@ -41,6 +41,7 @@ function StoryCollector({ onStoryGenerated = () => {}, categories = [] }) {
 
   const appendLog = (msg) => setLog((prev) => [...prev, msg]);
 
+  // 采集故事
   const handleCollect = async () => {
     if (!prompt) {
       setError('请输入故事主题或提示词');
@@ -67,10 +68,9 @@ function StoryCollector({ onStoryGenerated = () => {}, categories = [] }) {
     let progressLogs = [];
     let attempt = 0;
     try {
-      while (collected.length < total && attempt < 10) {
-        let need = Math.min(batch, total - collected.length);
-        setProgress(p => ({...p, current: attempt + 1, total: Math.ceil(total / batch), logs: [...progressLogs, `第${attempt + 1}批，目标${need}条...`]}));
-        appendLog(`第${attempt + 1}批采集，目标${need}条...`);
+      const doBatch = async (need, attemptIndex) => {
+        setProgress(p => ({...p, current: attemptIndex + 1, total: Math.ceil(total / batch), logs: [...progressLogs, `第${attemptIndex + 1}批，目标${need}条...`]}));
+        appendLog(`第${attemptIndex + 1}批采集，目标${need}条...`);
         const response = await fetch('http://localhost:5000/api/collect', {
           method: 'POST',
           headers: {
@@ -105,38 +105,42 @@ function StoryCollector({ onStoryGenerated = () => {}, categories = [] }) {
             let newStories = data.stories.filter(s => !collected.some(c => c.title === s.title));
             collected = [...collected, ...newStories];
             duplicate = [...duplicate, ...(data.duplicate || [])];
-            progressLogs.push(`第${attempt + 1}批：采集${newStories.length}条，重复${(data.duplicate || []).length}条`);
-            setProgress(p => ({...p, current: attempt + 1, total: Math.ceil(total / batch), logs: [...progressLogs]}));
-            if (newStories.length === 0) break; // AI返回空数组，提前结束
+            progressLogs.push(`第${attemptIndex + 1}批：采集${newStories.length}条，重复${(data.duplicate || []).length}条`);
+            setProgress(p => ({...p, current: attemptIndex + 1, total: Math.ceil(total / batch), logs: [...progressLogs]}));
+            if (newStories.length === 0) return; // AI返回空数组，提前结束
           } else if (data.message && data.message.includes('有效收集数量不足')) {
             setError('有效收集数量不足，建议更换提示词或缩小范围。');
             setSuccess('');
             appendLog(data.message);
-            break;
+            return;
           } else if (data.duplicate) {
             setError('故事已存在，未保存');
             setSuccess('');
             onStoryGenerated();
-            break;
+            return;
           } else {
             setSuccess('故事收集成功！');
             setPrompt('');
             setError('');
             onStoryGenerated();
-            break;
+            return;
           }
         } else {
           setError(data.error || '故事收集失败');
-          break;
+          return;
         }
+      };
+      while (collected.length < total && attempt < 10) {
+        let need = Math.min(batch, total - collected.length);
+        await doBatch(need, attempt);
         attempt++;
       }
       setSuccess(`收集完成，已保存${collected.length}条，重复${duplicate.length}条`);
       appendLog('采集完成。');
       onStoryGenerated(collected);
-    } catch (error) {
-      setError('故事收集失败：' + error.message);
-      appendLog('采集失败：' + error.message);
+    } catch (e) {
+      setError('采集失败：' + e.message);
+      appendLog('采集失败：' + e.message);
     } finally {
       setCollecting(false);
     }

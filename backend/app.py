@@ -12,6 +12,15 @@ import json
 import re
 import logging
 from io import BytesIO
+from models import db, Prompt, Style, Story, Category
+from project_api import project_bp
+from style_api import style_bp
+from script_api import script_bp
+from prompt_api import prompt_bp
+from image_api import image_bp
+from export_api import export_bp
+from settings_api import settings_bp
+import glob
 
 # 配置日志
 logging.basicConfig(
@@ -21,47 +30,31 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# 新增：日志写入文件
+file_handler = logging.FileHandler('backend.log', encoding='utf-8')
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+logger.addHandler(file_handler)
+
 # 加载环境变量
 load_dotenv()
 print('API KEY:', os.getenv('SILICON_API_KEY'))
 
 app = Flask(__name__)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+db_path = os.path.join(BASE_DIR, 'data', 'stories.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 CORS(app)
+db.init_app(app)
 
-# 数据库配置
-Base = declarative_base()
-engine = create_engine('sqlite:///stories.db')
-Session = sessionmaker(bind=engine)
-
-# 定义数据模型
-class Story(Base):
-    __tablename__ = 'stories'
-    
-    id = Column(Integer, primary_key=True)
-    title = Column(String(200))
-    content = Column(Text)
-    category = Column(String(50))
-    source = Column(String(100))
-    batch = Column(String(50))  # 新增批次字段
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-class Category(Base):
-    __tablename__ = 'categories'
-    id = Column(Integer, primary_key=True)
-    name = Column(String(50), unique=True, nullable=False)
-
-# 创建数据库表
-Base.metadata.create_all(engine)
-
-# 启动时自动将stories表中已有分类去重插入Category表
-with Session() as session:
-    existing_categories = set([c.name for c in session.query(Category).all()])
-    story_categories = set([c[0] for c in session.query(Story.category).distinct() if c[0]])
-    for cat in story_categories:
-        if cat not in existing_categories:
-            session.add(Category(name=cat))
-    session.commit()
+app.register_blueprint(project_bp, url_prefix='/api/projects')
+app.register_blueprint(style_bp, url_prefix='/api/styles')
+app.register_blueprint(script_bp, url_prefix='/api/script')
+app.register_blueprint(prompt_bp, url_prefix='/api/prompt')
+app.register_blueprint(image_bp, url_prefix='/api/image')
+app.register_blueprint(export_bp, url_prefix='/api/export')
+app.register_blueprint(settings_bp, url_prefix='/api/settings')
 
 def process_csv_data(df, batch=None):
     """处理CSV数据并保存到数据库，查重，支持中文表头自动映射，支持批次，自动同步新分类，空分类归为未分类"""
@@ -78,7 +71,7 @@ def process_csv_data(df, batch=None):
     }
     # 重命名DataFrame列
     df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
-    session = Session()
+    session = db.session
     duplicate_count = 0
     success_count = 0
     if not batch:
@@ -147,7 +140,7 @@ def upload_csv():
 @app.route('/api/stories', methods=['GET'])
 def get_stories():
     """获取故事列表，支持按分类和批次筛选"""
-    session = Session()
+    session = db.session
     try:
         category = request.args.get('category')
         batch = request.args.get('batch')
@@ -236,7 +229,7 @@ def collect_stories():
                     pass
             return None
         
-        session = Session()
+        session = db.session
         collected = []
         tried_titles = set()
         duplicate = []
@@ -460,7 +453,7 @@ def get_models():
 
 @app.route('/api/story/<int:story_id>', methods=['PUT'])
 def edit_story(story_id):
-    session = Session()
+    session = db.session
     try:
         story = session.query(Story).get(story_id)
         if not story:
@@ -480,7 +473,7 @@ def edit_story(story_id):
 
 @app.route('/api/story/<int:story_id>', methods=['DELETE'])
 def delete_story(story_id):
-    session = Session()
+    session = db.session
     try:
         story = session.query(Story).get(story_id)
         if not story:
@@ -496,7 +489,7 @@ def delete_story(story_id):
 
 @app.route('/api/categories', methods=['GET'])
 def get_categories():
-    session = Session()
+    session = db.session
     try:
         categories = session.query(Category).all()
         return jsonify([{'id': c.id, 'name': c.name} for c in categories])
@@ -509,7 +502,7 @@ def add_category():
     name = data.get('name')
     if not name:
         return jsonify({'error': '分类名不能为空'}), 400
-    session = Session()
+    session = db.session
     try:
         if session.query(Category).filter_by(name=name).first():
             return jsonify({'error': '分类已存在'}), 400
@@ -524,7 +517,7 @@ def add_category():
 def update_category(cat_id):
     data = request.json
     name = data.get('name')
-    session = Session()
+    session = db.session
     try:
         category = session.query(Category).get(cat_id)
         if not category:
@@ -543,7 +536,7 @@ def update_category(cat_id):
 
 @app.route('/api/categories/<int:cat_id>', methods=['DELETE'])
 def delete_category(cat_id):
-    session = Session()
+    session = db.session
     try:
         category = session.query(Category).get(cat_id)
         if not category:
@@ -562,7 +555,7 @@ def batch_delete_stories():
     ids = data.get('ids', [])
     if not ids:
         return jsonify({'error': '未提供要删除的故事ID列表'}), 400
-    session = Session()
+    session = db.session
     try:
         deleted = session.query(Story).filter(Story.id.in_(ids)).delete(synchronize_session=False)
         session.commit()
@@ -580,7 +573,7 @@ def batch_update_category():
     category = data.get('category')
     if not ids or not category:
         return jsonify({'error': '缺少参数'}), 400
-    session = Session()
+    session = db.session
     try:
         updated = session.query(Story).filter(Story.id.in_(ids)).update({Story.category: category}, synchronize_session=False)
         session.commit()
@@ -597,7 +590,7 @@ def batch_export_stories():
     ids = data.get('ids', [])
     if not ids:
         return jsonify({'error': '未提供要导出的故事ID列表'}), 400
-    session = Session()
+    session = db.session
     try:
         stories = session.query(Story).filter(Story.id.in_(ids)).all()
         output = BytesIO()
@@ -620,7 +613,7 @@ def export_by_batch():
     batch = request.args.get('batch')
     if not batch:
         return jsonify({'error': '未指定批次号'}), 400
-    session = Session()
+    session = db.session
     try:
         stories = session.query(Story).filter(Story.batch == batch).all()
         output = BytesIO()
@@ -637,5 +630,39 @@ def export_by_batch():
     finally:
         session.close()
 
+@app.route('/api/prompts', methods=['GET'])
+def get_prompts_compat():
+    prompts = db.session.query(Prompt).all()
+    return jsonify([
+        {
+            'id': p.id,
+            'type': p.type,
+            'name': p.name,
+            'content': p.content
+        } for p in prompts
+    ])
+
+@app.route('/api/logs', methods=['GET'])
+def get_logs():
+    # 查找最新的日志文件或直接读取当前日志
+    log_files = glob.glob('*.log')
+    log_content = ''
+    if log_files:
+        latest_log = max(log_files, key=os.path.getctime)
+        with open(latest_log, encoding='utf-8', errors='ignore') as f:
+            log_content = f.read()[-5000:]  # 只返回最后5000字符
+    else:
+        # 直接读取标准输出日志（如有）
+        try:
+            with open('backend.log', encoding='utf-8', errors='ignore') as f:
+                log_content = f.read()[-5000:]
+        except Exception:
+            log_content = '未找到日志文件。'
+    return jsonify({'log': log_content})
+
+@app.route('/')
+def index():
+    return '儿童绘本故事收集与结构化创作平台 API 服务已启动'
+
 if __name__ == '__main__':
-    app.run(debug=True) 
+    app.run(host='0.0.0.0', port=5000, debug=True) 

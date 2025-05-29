@@ -6,9 +6,12 @@ import StoryList from './components/StoryList';
 import StoryCollector from './components/StoryCollector';
 import Settings from './components/Settings';
 import CategoryManager from './components/CategoryManager';
+import StoryEditorPage from './components/StoryEditorPage';
+import StoryCreationForm from './components/StoryCreationForm';
 
 function App() {
-  const [page, setPage] = useState('library'); // 'library' or 'legacy'
+  const [page, setPage] = useState('library'); // 'library' or 'legacy' or 'creation' or 'editor'
+  const [editorInit, setEditorInit] = useState(null); // 结构化编辑器初始参数
   const [stories, setStories] = useState([]);
   const [categories, setCategories] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -87,7 +90,28 @@ function App() {
             原功能页
           </Button>
         </ButtonGroup>
-        {page === 'library' && <StoryLibraryPage />}
+        {page === 'library' && (
+          <>
+            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button variant="contained" color="primary" onClick={() => setPage('creation')}>
+                新建故事
+              </Button>
+            </Box>
+            <StoryLibraryPage />
+          </>
+        )}
+        {page === 'creation' && (
+          <StoryCreationForm
+            onConfirm={storyData => {
+              setEditorInit(storyData); // storyData 应为完整 story（含 pages）
+              setPage('editor');
+            }}
+            onCancel={() => setPage('library')}
+          />
+        )}
+        {page === 'editor' && (
+          <StoryEditorPage onBack={() => setPage('library')} initParams={editorInit} />
+        )}
         {page === 'legacy' && (
           <>
             <Box sx={{ mb: 4 }}>

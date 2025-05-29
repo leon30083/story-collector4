@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 import pandas as pd
 import os
@@ -12,6 +12,7 @@ import json
 import re
 import logging
 from io import BytesIO
+from openai import OpenAI
 
 # 配置日志
 logging.basicConfig(
@@ -636,6 +637,93 @@ def export_by_batch():
         )
     finally:
         session.close()
+
+@app.route('/api/ai/generate', methods=['POST'])
+def generate_picturebook():
+    data = request.json
+    theme = data.get('theme', '')
+    style_id = data.get('style_id', '')
+    age = data.get('age', '')
+    lang = data.get('lang', 'zh')
+    words = data.get('words', 600)
+
+    # 读取风格名
+    style_name = '未知风格'
+    try:
+        with open('text/ai_picturebook_styles.json', encoding='utf-8') as f:
+            styles = json.load(f)
+        if style_id and style_id in styles:
+            style_name = styles[style_id]['name']
+    except Exception:
+        pass
+
+    # 判断是否为经典改编
+    classic_keywords = ['嫦娥奔月', '女娲补天', '愚公移山', '牛郎织女', '后羿射日', '精卫填海', '孟姜女']
+    is_classic = any(kw in theme for kw in classic_keywords)
+
+    prompt_system = f"""你是一位儿童绘本创作专家，熟练掌握10种语言风格与创作模板（风格编号与模板已上传为JSON）。用户会提供目标年龄段、绘本主题、情绪期望或参考风格编号，你的任务是：
+
+1. 若主题为原创，请根据用户选择的风格编号，自动调用对应风格的语言模板与句式，生成结构化分段绘本，每页为一句旁白。
+2. 若主题为中国传统神话、寓言、民间故事等经典内容（如《嫦娥奔月》《女娲补天》《愚公移山》等），请严格遵循以下改编流程：
+   - 保留原作标题，不得重命名
+   - 拆分经典情节节点（参考经典改编手册），每页为一个情节节点
+   - 结合目标年龄段，调整为简洁易懂的语言
+   - 选择与题材最适配的风格（如沉静幻想型用于神话，寓言结构型用于寓言）
+   - 每页生成中英文对照文本与配图建议，结尾强化文化寓意
+3. 所有生成结果需适合{age}儿童，语言简洁、画面感强、适合图文同步，朗读节奏清晰。
+4. 输出格式必须为如下JSON数组，每个元素为一页：
+[
+  {{
+    "page_no": 1,
+    "text_cn": "第一页中文内容",
+    "text_en": "Page 1 English content",
+    "image_hint": "插图建议",
+    "style_id": "{style_id}"
+  }},
+  ...
+]
+5. 只输出JSON数组，不要多余解释。
+"""
+
+    prompt_user = f'请以"{theme}"为主题，风格编号"{style_id}"，风格名称"{style_name}"，年龄段"{age}"，语言"{lang}"，总字数"{words}"为要求，生成结构化绘本故事。'
+    if is_classic:
+        prompt_user += ' 该主题为经典神话/寓言/民间故事，请严格遵循经典改编手册的分段与表达规范。'
+
+    client = OpenAI(
+        api_key=os.getenv('SILICON_API_KEY'),
+        base_url="https://api.siliconflow.cn/v1"
+    )
+    try:
+        response = client.chat.completions.create(
+            model="deepseek-ai/DeepSeek-V3",
+            messages=[
+                {"role": "system", "content": prompt_system},
+                {"role": "user", "content": prompt_user}
+            ],
+            temperature=0.7,
+            max_tokens=2048,
+            response_format={"type": "json_object"}
+        )
+        content = response.choices[0].message.content
+        # 解析JSON
+        pages = json.loads(content)
+        return jsonify({
+            "title": theme,
+            "style_id": style_id,
+            "age": age,
+            "lang": lang,
+            "words": words,
+            "pages": pages
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/text/<path:filename>')
+def serve_text(filename):
+    import os
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    text_dir = os.path.join(base_dir, 'text')
+    return send_from_directory(text_dir, filename)
 
 if __name__ == '__main__':
     app.run(debug=True) 

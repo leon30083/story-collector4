@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>绘本故事创作流程</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: linear-gradient(90deg, #E0F7FA 50%, #FCE4EC 50%); }
+    .hidden { display: none; }
+  </style>
+</head>
+<body class="h-screen flex flex-col">
+  <!-- 顶部菜单与进度 -->
+  <header class="flex items-center justify-between p-4 bg-white shadow">
+    <div class="flex items-center space-x-4">
+      <button class="text-gray-600 hover:text-gray-800">← 返回个人中心</button>
+      <nav class="flex items-center text-sm space-x-2">
+        <span data-step="0" class="cursor-pointer">0 用户输入基本信息</span><span>→</span>
+        <span data-step="1" class="cursor-pointer text-gray-400">1 故事文案创作</span><span>→</span>
+        <span data-step="2" class="cursor-pointer text-gray-400">2 分镜提示词生成</span><span>→</span>
+        <span data-step="3" class="cursor-pointer text-gray-400">3 绘本画面局部修改</span>
+      </nav>
+    </div>
+    <div class="flex items-center space-x-4">
+      <button id="btnPromptMng" class="px-3 py-1 bg-indigo-500 text-white rounded">提示词管理</button>
+      <button id="btnSettings" class="px-3 py-1 bg-gray-200 rounded">设置</button>
+      <button class="px-4 py-1 bg-yellow-400 text-white rounded">开通会员</button>
+      <div class="relative">
+        <button class="p-2"><svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 17h5l-1.405-1.405M19 13V8a7 7 0 10-14 0v5l-1.405 1.405"/></svg></button>
+        <span class="absolute top-0 right-0 bg-red-500 rounded-full text-xs text-white px-1">!</span>
+      </div>
+      <span>积分：196</span>
+    </div>
+  </header>
+
+  <main class="flex-1 overflow-auto p-6">
+    <!-- 步骤0 -->
+    <section id="step0" class="bg-white rounded p-6 shadow">
+      <h2 class="text-xl font-semibold mb-4">0 用户输入基本信息</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div><label class="block text-sm">主题</label><input type="text" class="w-full p-2 border rounded" placeholder="例如：草船借箭"/></div>
+        <div><label class="block text-sm">适龄段</label><select class="w-full p-2 border rounded"><option>3-5 岁</option><option>5-8 岁</option><option>8-10 岁</option></select></div>
+        <div><label class="block text-sm">故事风格</label><select class="w-full p-2 border rounded"><option>温暖童话</option><option>幽默卡通</option><option>史诗奇幻</option></select></div>
+      </div>
+    </section>
+
+```
+<!-- 步骤1 -->
+<section id="step1" class="bg-white rounded p-6 shadow mt-6 hidden">
+  <h2 class="text-xl font-semibold mb-4">1 故事文案创作【AI根据用户输入生成脚本】</h2>
+  <textarea class="w-full h-64 p-4 border rounded-md" placeholder="AI将根据基本信息自动生成故事脚本..."></textarea>
+  <div class="text-right text-sm text-gray-500">0/1500</div>
+</section>
+
+<!-- 步骤2 -->
+<section id="step2" class="bg-white rounded p-6 shadow mt-6 hidden">
+  <h2 class="text-xl font-semibold mb-4">2 分镜提示词生成【AI根据脚本生成】</h2>
+  <div class="space-y-4">
+    <div><label class="block text-sm">分镜1 提示词</label><textarea class="w-full h-24 p-2 border rounded" placeholder="示例：清晨，森林场景，女主角与小狗...，3D皮克斯风格"></textarea></div>
+    <div><label class="block text-sm">分镜2 提示词</label><textarea class="w-full h-24 p-2 border rounded" placeholder="示例：午后，魔法蘑菇...，童话风格"></textarea></div>
+    <div><label class="block text-sm">分镜3 提示词</label><textarea class="w-full h-24 p-2 border rounded" placeholder="示例：傍晚，城堡前对峙大怪兽...，史诗氛围"></textarea></div>
+  </div>
+  <div class="mt-4 text-right"><button class="px-4 py-1 bg-green-500 text-white rounded">刷新生成</button></div>
+</section>
+
+<!-- 步骤3 -->
+<section id="step3" class="bg-white rounded p-6 shadow mt-6 hidden flex flex-col">
+  <div class="flex justify-end mb-4">
+    <button id="btnComfySettings" class="px-4 py-1 bg-blue-600 text-white rounded">配置 ComfyUI 工作流</button>
+  </div>
+  <div class="flex">
+    <aside class="w-1/4 space-y-4">
+      <div class="border rounded h-32 flex items-center justify-center text-gray-400">上传图片</div>
+      <input type="file" accept="image/*" class="w-full"/>
+    </aside>
+    <div class="flex-1 mx-4">
+      <div class="h-96 bg-gray-200 flex items-center justify-center text-gray-500">ComfyUI 节点编辑器</div>
+    </div>
+  </div>
+</section>
+
+<!-- 提示词管理 -->
+<section id="promptMng" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+  <div class="bg-white w-2/3 p-6 rounded shadow">
+    <h2 class="text-xl font-semibold mb-4">提示词管理</h2>
+    <div class="mb-4 flex space-x-4">
+      <div><label class="block text-sm">分类</label><select id="promptCategory" class="p-2 border rounded"><option value="script">文稿提示词</option><option value="storyboard">分镜提示词</option></select></div>
+      <div><label class="block text-sm">提示词名称</label><select id="promptVersion" class="p-2 border rounded"><option value="warm">温暖童话</option><option value="epic">史诗奇幻</option></select></div>
+      <button id="addVersion" class="mt-6 p-2 bg-green-500 text-white rounded">+ 新增名称</button>
+    </div>
+    <textarea id="promptContent" class="w-full h-40 p-2 border rounded" placeholder="管理当前分类/名称的提示词...示例：温暖、幽默..."></textarea>
+    <div class="mt-4 text-right">
+      <button class="px-4 py-1 bg-gray-200 rounded mr-2" onclick="togglePromptMng()">关闭</button>
+      <button class="px-4 py-1 bg-blue-500 text-white rounded">保存</button>
+    </div>
+  </div>
+</section>
+
+<!-- 设置 -->
+<section id="settings" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+  <div class="bg-white w-1/2 p-6 rounded shadow">
+    <h2 class="text-xl font-semibold mb-4">设置 SiliconFlow API</h2>
+    <div class="space-y-4">
+      <div><label class="block text-sm">SiliconFlow API Key</label><input type="text" class="w-full p-2 border rounded" placeholder="输入您的 API Key"/></div>
+      <div><label class="block text-sm">Endpoint URL</label><input type="text" class="w-full p-2 border rounded" value="https://api.siliconflow.cn/v1/chat/completions"/></div>
+      <div><label class="block text-sm">Model</label><select class="w-full p-2 border rounded"><option>sf-chat-1.0</option><option>sf-chat-2.0</option></select></div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="block text-sm">Temperature</label><input type="number" step="0.1" min="0" max="1" class="w-full p-2 border rounded" value="0.7"/></div>
+        <div><label class="block text-sm">Top P</label><input type="number" step="0.1" min="0" max="1" class="w-full p-2 border rounded" value="0.9"/></div>
+      </div>
+      <div><label class="block text-sm">Max Tokens</label><input type="number" step="1" min="1" class="w-full p-2 border rounded" value="1024"/></div>
+    </div>
+    <div class="mt-4 text-right">
+      <button class="px-4 py-1 bg-gray-200 rounded mr-2" onclick="toggleSettings()">关闭</button>
+      <button class="px-4 py-1 bg-blue-500 text-white rounded">保存</button>
+    </div>
+  </div>
+</section>
+```
+
+  </main>
+
+  <!-- 底部按钮 -->
+
+  <footer class="p-4 bg-white shadow text-center">
+    <button id="backBtn" class="px-6 py-2 bg-gray-200 rounded mr-4 hidden" onclick="prevStep()">返回</button>
+    <button id="nextBtn" class="px-6 py-2 bg-pink-500 text-white rounded" onclick="nextStep()">下一步 →</button>
+  </footer>
+
+  <!-- 控制脚本 -->
+
+  <script>
+    let currentStep = 0, totalSteps = 3;
+    function showStep(step) {
+      for (let i=0;i<=totalSteps;i++){
+        let sec=document.getElementById('step'+i);
+        if(sec) sec.style.display=(i===step)?(i===3?'flex':'block'):'none';
+        let nav=document.querySelector('[data-step="'+i+'"]');
+        if(nav) nav.classList.toggle('text-blue-500',i===step);
+        if(nav) nav.classList.toggle('text-gray-400',i!==step);
+      }
+      document.getElementById('backBtn').style.display=currentStep>0?'inline-block':'none';
+      document.getElementById('nextBtn').textContent=currentStep<totalSteps?'下一步 →':'完成';
+    }
+    function nextStep(){if(currentStep<totalSteps){currentStep++;showStep(currentStep);}else alert('创作流程完成！');}
+    function prevStep(){if(currentStep>0){currentStep--;showStep(currentStep);}}
+    function togglePromptMng(){document.getElementById('promptMng').classList.toggle('hidden');}
+    function toggleSettings(){document.getElementById('settings').classList.toggle('hidden');}
+    window.onload=()=>showStep(currentStep);
+    document.getElementById('btnPromptMng').onclick=togglePromptMng;
+    document.getElementById('btnSettings').onclick=toggleSettings;
+  </script>
+
+</body>
+</html>

@@ -243,8 +243,12 @@ def collect_stories():
         max_attempts = 3
         attempt = 0
 
-        # 在循环外部获取数据库中当前分类下已有的标题
-        existing_titles = [s.title for s in session.query(Story).filter(Story.category == category).all()]
+        # 在循环外部获取数据库中当前分类下已有的标题（标准化处理，去重排序）
+        def normalize_category(cat):
+            return cat.strip().lower() if cat else ''
+        norm_category = normalize_category(category)
+        existing_titles = [s.title.strip() for s in session.query(Story).all() if normalize_category(s.category) == norm_category]
+        existing_titles = sorted(set(existing_titles))  # 去重排序
         logger.info(f"数据库中{category}分类下已有故事: {existing_titles}")
 
         titles_str = ''

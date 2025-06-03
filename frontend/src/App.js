@@ -8,7 +8,6 @@ import Settings from './components/Settings';
 import CategoryManager from './components/CategoryManager';
 
 function App() {
-  const [page, setPage] = useState('library'); // 'library' or 'legacy'
   const [stories, setStories] = useState([]);
   const [categories, setCategories] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -23,16 +22,17 @@ function App() {
   // 获取故事列表
   const fetchStories = async (category = '', batch = '') => {
     let url = 'http://localhost:5000/api/stories';
-    const params = [];
-    if (category) params.push(`category=${encodeURIComponent(category)}`);
-    if (batch) params.push(`batch=${encodeURIComponent(batch)}`);
-    if (params.length > 0) url += '?' + params.join('&');
-    const res = await fetch(url);
-    const data = await res.json();
-    setStories(data);
-    // 自动提取所有批次
+    // 不带筛选参数，始终获取全量数据
+    const res = await fetch('http://localhost:5000/api/stories');
+    const allData = await res.json();
+    // 再根据参数做前端筛选
+    let filtered = allData;
+    if (category) filtered = filtered.filter(s => s.category === category);
+    if (batch) filtered = filtered.filter(s => s.batch === batch);
+    setStories(filtered);
+    // 批次下拉框始终用全量数据提取
     const batchSet = new Set();
-    data.forEach(story => { if (story.batch) batchSet.add(story.batch); });
+    allData.forEach(story => { if (story.batch) batchSet.add(story.batch); });
     setBatches(Array.from(batchSet));
   };
 
@@ -73,45 +73,26 @@ function App() {
         <Typography variant="h4" component="h1" gutterBottom align="center">
           儿童绘本故事收集系统
         </Typography>
-        <ButtonGroup sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
-          <Button
-            variant={page === 'library' ? 'contained' : 'outlined'}
-            onClick={() => setPage('library')}
-          >
-            故事库首页
-          </Button>
-          <Button
-            variant={page === 'legacy' ? 'contained' : 'outlined'}
-            onClick={() => setPage('legacy')}
-          >
-            原功能页
-          </Button>
-        </ButtonGroup>
-        {page === 'library' && <StoryLibraryPage />}
-        {page === 'legacy' && (
-          <>
-            <Box sx={{ mb: 4 }}>
-              <Settings />
-            </Box>
-            <Box sx={{ mb: 4 }}>
-              <CategoryManager onCategoryChange={handleCategoryChange} />
-            </Box>
-            <Box sx={{ mb: 4 }}>
-              <StoryCollector onStoryGenerated={handleStoryCollected} categories={categories} />
-            </Box>
-            <Box sx={{ mb: 4 }}>
-              <StoryUpload onUploadSuccess={handleUploadSuccess} />
-            </Box>
-            <Box>
-              <StoryList
-                stories={stories}
-                categories={categories}
-                onCategoryChange={handleCategoryChange}
-                batches={batches}
-              />
-            </Box>
-          </>
-        )}
+        <Box sx={{ mb: 4 }}>
+          <Settings />
+        </Box>
+        <Box sx={{ mb: 4 }}>
+          <CategoryManager onCategoryChange={handleCategoryChange} />
+        </Box>
+        <Box sx={{ mb: 4 }}>
+          <StoryCollector onStoryGenerated={handleStoryCollected} categories={categories} />
+        </Box>
+        <Box sx={{ mb: 4 }}>
+          <StoryUpload onUploadSuccess={handleUploadSuccess} />
+        </Box>
+        <Box>
+          <StoryList
+            stories={stories}
+            categories={categories}
+            onCategoryChange={handleCategoryChange}
+            batches={batches}
+          />
+        </Box>
       </Box>
     </Container>
   );

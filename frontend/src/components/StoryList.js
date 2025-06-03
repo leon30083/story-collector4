@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Table,
@@ -30,11 +30,14 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import Checkbox from '@mui/material/Checkbox';
 import DownloadIcon from '@mui/icons-material/Download';
+import dayjs from 'dayjs';
 
 function StoryList({ stories, categories, onCategoryChange, batches = [] }) {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedBatch, setSelectedBatch] = useState('');
   const [search, setSearch] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [detailStory, setDetailStory] = useState(null);
   const [editStory, setEditStory] = useState(null);
   const [deleteStory, setDeleteStory] = useState(null);
@@ -44,26 +47,48 @@ function StoryList({ stories, categories, onCategoryChange, batches = [] }) {
   const [batchCategory, setBatchCategory] = useState('');
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
 
+  // 修复：只在组件首次挂载时初始化筛选项，不在数据变化时重置，避免选中后自动消失
+  useEffect(() => {
+    // 只初始化一次
+    // setSelectedCategory('');
+    // setSelectedBatch('');
+    // setSearch('');
+  }, []);
+
+  // 修复：批次下拉框始终使用props.batches渲染，不用stories数据动态生成
+  const sortedBatches = Array.from(new Set(batches)).sort((a, b) => b.localeCompare(a));
+
+  // 切换分类时只刷新分类
   const handleCategoryChange = (event) => {
     const category = event.target.value;
     setSelectedCategory(category);
     onCategoryChange(category, selectedBatch);
   };
-
+  // 切换批次时只刷新批次
   const handleBatchChange = (event) => {
     const batch = event.target.value;
     setSelectedBatch(batch);
     onCategoryChange(selectedCategory, batch);
   };
 
-  // 关键词过滤
+  // 时间区间筛选逻辑
+  const filterByDate = (story) => {
+    if (!startDate && !endDate) return true;
+    const created = story.created_at ? dayjs(story.created_at) : null;
+    if (!created) return false;
+    if (startDate && created.isBefore(dayjs(startDate))) return false;
+    if (endDate && created.isAfter(dayjs(endDate).endOf('day'))) return false;
+    return true;
+  };
+
+  // 关键词过滤+分类+批次+时间区间
   const filteredStories = stories.filter((story) => {
     const matchCategory = selectedCategory ? story.category === selectedCategory : true;
     const matchBatch = selectedBatch ? story.batch === selectedBatch : true;
     const matchSearch = search
       ? (story.title && story.title.includes(search)) || (story.content && story.content.includes(search))
       : true;
-    return matchCategory && matchBatch && matchSearch;
+    return matchCategory && matchBatch && matchSearch && filterByDate(story);
   });
 
   // 多选逻辑
@@ -150,27 +175,6 @@ function StoryList({ stories, categories, onCategoryChange, batches = [] }) {
     }
   };
 
-  // 按批次导出
-  const handleExportByBatch = async () => {
-    if (!selectedBatch) return;
-    try {
-      const res = await fetch(`http://localhost:5000/api/stories/export_by_batch?batch=${selectedBatch}`);
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `stories_batch_${selectedBatch}.csv`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-      } else {
-        setSnackbar({ open: true, message: '批次导出失败', severity: 'error' });
-      }
-    } catch (e) {
-      setSnackbar({ open: true, message: '网络错误', severity: 'error' });
-    }
-  };
-
   // 编辑弹窗初始化
   const openEditDialog = (story) => {
     setEditStory(story);
@@ -250,21 +254,30 @@ function StoryList({ stories, categories, onCategoryChange, batches = [] }) {
             value={selectedBatch}
             onChange={handleBatchChange}
             label="整理批次"
+            MenuProps={{ PaperProps: { style: { maxHeight: 300 } } }}
           >
             <MenuItem value="">全部</MenuItem>
-            {batches.map((batch) => (
+            {sortedBatches.map((batch) => (
               <MenuItem key={batch} value={batch}>{batch}</MenuItem>
             ))}
           </Select>
         </FormControl>
-        <Button
-          variant="outlined"
-          startIcon={<DownloadIcon />}
-          onClick={handleExportByBatch}
-          disabled={!selectedBatch}
-        >
-          按批次导出
-        </Button>
+        <TextField
+          label="开始时间"
+          type="date"
+          value={startDate}
+          onChange={e => setStartDate(e.target.value)}
+          sx={{ minWidth: 140 }}
+          InputLabelProps={{ shrink: true }}
+        />
+        <TextField
+          label="结束时间"
+          type="date"
+          value={endDate}
+          onChange={e => setEndDate(e.target.value)}
+          sx={{ minWidth: 140 }}
+          InputLabelProps={{ shrink: true }}
+        />
         <TextField
           label="关键词搜索"
           value={search}

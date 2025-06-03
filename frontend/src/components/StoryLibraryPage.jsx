@@ -10,39 +10,6 @@ import DownloadIcon from '@mui/icons-material/Download';
 import StoryUpload from './StoryUpload';
 import CategoryManager from './CategoryManager';
 
-// mock数据
-const mockStories = [
-  {
-    id: 1,
-    title: '勇敢的小兔子',
-    author: 'AI',
-    age_range: '4-8岁',
-    theme: '勇敢',
-    style_id: 1,
-    created_at: '2024-06-01',
-    updated_at: '2024-06-01',
-  },
-  {
-    id: 2,
-    title: '森林里的秘密',
-    author: 'AI',
-    age_range: '5-9岁',
-    theme: '成长',
-    style_id: 2,
-    created_at: '2024-06-02',
-    updated_at: '2024-06-02',
-  },
-  // ...更多故事
-];
-
-// mock分类
-const mockCategories = [
-  { id: '', name: '全部' },
-  { id: '勇敢', name: '勇敢' },
-  { id: '成长', name: '成长' },
-  // ...更多分类
-];
-
 function StoryCard({ story, selected, onSelect, onEdit, onDelete, onExport, onDetail }) {
   return (
     <Paper sx={{
@@ -74,8 +41,7 @@ function StoryCard({ story, selected, onSelect, onEdit, onDelete, onExport, onDe
   );
 }
 
-export default function StoryLibraryPage() {
-  const [stories, setStories] = useState(mockStories);
+export default function StoryLibraryPage({ stories = [], categories = [], onCategoryChange }) {
   const [selected, setSelected] = useState([]);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -102,9 +68,9 @@ export default function StoryLibraryPage() {
   const filteredStories = stories.filter(
     s =>
       (category === '' || s.theme === category) &&
-      (s.title.includes(search) ||
-        s.author.includes(search) ||
-        s.theme.includes(search))
+      ((s.title && s.title.includes(search)) ||
+        (s.author && s.author.includes(search)) ||
+        (s.theme && s.theme.includes(search)))
   );
 
   // 分页逻辑
@@ -119,17 +85,24 @@ export default function StoryLibraryPage() {
     );
   };
 
+  // 分类筛选
+  const handleCategoryChange = (e) => {
+    setCategory(e.target.value);
+    setPage(1);
+    if (onCategoryChange) onCategoryChange(e.target.value, '');
+  };
+
   // 数据获取（mock/后端API）
   const fetchStories = async () => {
     // TODO: 切换为真实API时替换此处
-    setStories(mockStories);
+    // setStories(mockStories);
   };
 
   // 批量删除
   const handleBatchDelete = () => {
     // TODO: 调用API删除selected故事
     alert(`批量删除故事ID: ${selected.join(',')}`);
-    setStories(stories.filter(s => !selected.includes(s.id)));
+    // setStories(stories.filter(s => !selected.includes(s.id)));
     setSelected([]);
   };
 
@@ -148,7 +121,7 @@ export default function StoryLibraryPage() {
   const handleDelete = (story) => {
     // TODO: 调用API删除
     alert(`删除故事：${story.title}`);
-    setStories(stories.filter(s => s.id !== story.id));
+    // setStories(stories.filter(s => s.id !== story.id));
     setSelected(selected.filter(id => id !== story.id));
   };
 
@@ -183,7 +156,7 @@ export default function StoryLibraryPage() {
         <Paper sx={{ p: 2, minWidth: 120, textAlign: 'center', bgcolor: '#f0f4ff', borderRadius: 2, boxShadow: 1 }}>
           <Typography variant="subtitle2">分类分布</Typography>
           <Typography variant="body2">
-            {mockCategories.filter(c => c.id).map(cat => `${cat.name}:${stories.filter(s => s.theme === cat.id).length}`).join(' / ')}
+            {categories.filter(c => c).map(cat => `${cat}:${stories.filter(s => s.theme === cat).length}`).join(' / ')}
           </Typography>
         </Paper>
       </Box>
@@ -199,11 +172,12 @@ export default function StoryLibraryPage() {
         <Box sx={{ minWidth: 120, ml: 2 }}>
           <select
             value={category}
-            onChange={e => setCategory(e.target.value)}
+            onChange={handleCategoryChange}
             style={{ height: 36, borderRadius: 4, border: '1px solid #ccc', padding: '0 8px' }}
           >
-            {mockCategories.map(cat => (
-              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            <option value="">全部</option>
+            {categories.filter(c => c).map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
         </Box>
@@ -271,7 +245,7 @@ export default function StoryLibraryPage() {
           <Box sx={{ mt: 2 }}>
             <Typography>全部故事：{stories.length}</Typography>
             <Typography>当前筛选：{filteredStories.length}</Typography>
-            <Typography>分类分布：{mockCategories.filter(c => c.id).map(cat => `${cat.name}:${stories.filter(s => s.theme === cat.id).length}`).join(' / ')}</Typography>
+            <Typography>分类分布：{categories.filter(c => c).map(cat => `${cat}:${stories.filter(s => s.theme === cat).length}`).join(' / ')}</Typography>
           </Box>
           <Box sx={{ textAlign: 'right', mt: 2 }}>
             <Button onClick={() => setStatOpen(false)}>关闭</Button>
@@ -285,8 +259,8 @@ export default function StoryLibraryPage() {
           <TextField label="标题" value={newStory.title} onChange={e => setNewStory({ ...newStory, title: e.target.value })} fullWidth />
           <TextField label="作者" value={newStory.author} onChange={e => setNewStory({ ...newStory, author: e.target.value })} fullWidth />
           <TextField label="主题" value={newStory.theme} onChange={e => setNewStory({ ...newStory, theme: e.target.value })} fullWidth select>
-            {mockCategories.filter(c => c.id).map(cat => (
-              <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
+            {categories.filter(c => c).map(cat => (
+              <MenuItem key={cat} value={cat}>{cat}</MenuItem>
             ))}
           </TextField>
           <TextField label="适龄" value={newStory.age_range} onChange={e => setNewStory({ ...newStory, age_range: e.target.value })} fullWidth />
@@ -294,15 +268,7 @@ export default function StoryLibraryPage() {
             <Button onClick={() => setCreateOpen(false)} sx={{ mr: 1 }}>取消</Button>
             <Button variant="contained" onClick={() => {
               const now = new Date().toISOString().slice(0, 10);
-              setStories([
-                {
-                  ...newStory,
-                  id: Math.max(0, ...stories.map(s => s.id)) + 1,
-                  created_at: now,
-                  updated_at: now,
-                },
-                ...stories,
-              ]);
+              // 这里只做本地演示，实际应调用API
               setNewStory({ title: '', author: '', age_range: '', theme: '', style_id: 1, created_at: '', updated_at: '' });
               setCreateOpen(false);
             }}>提交</Button>
@@ -337,8 +303,8 @@ export default function StoryLibraryPage() {
             <TextField label="标题" value={editStory.title} onChange={e => setEditStory({ ...editStory, title: e.target.value })} fullWidth />
             <TextField label="作者" value={editStory.author} onChange={e => setEditStory({ ...editStory, author: e.target.value })} fullWidth />
             <TextField label="主题" value={editStory.theme} onChange={e => setEditStory({ ...editStory, theme: e.target.value })} fullWidth select>
-              {mockCategories.filter(c => c.id).map(cat => (
-                <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
+              {categories.filter(c => c).map(cat => (
+                <MenuItem key={cat} value={cat}>{cat}</MenuItem>
               ))}
             </TextField>
             <TextField label="适龄" value={editStory.age_range} onChange={e => setEditStory({ ...editStory, age_range: e.target.value })} fullWidth />
@@ -346,7 +312,8 @@ export default function StoryLibraryPage() {
           <Box sx={{ textAlign: 'right', mt: 2 }}>
             <Button onClick={() => setEditOpen(false)} sx={{ mr: 1 }}>取消</Button>
             <Button variant="contained" onClick={() => {
-              setStories(stories.map(s => s.id === editStory.id ? { ...editStory, updated_at: new Date().toISOString().slice(0, 10) } : s));
+              // 这里只做本地演示，实际应调用API
+              setEditStory({ ...editStory, updated_at: new Date().toISOString().slice(0, 10) });
               setEditOpen(false);
             }}>保存</Button>
           </Box>

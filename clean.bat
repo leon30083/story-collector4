@@ -1,0 +1,2 @@
+cd backend
+python clean_duplicate_categories.py

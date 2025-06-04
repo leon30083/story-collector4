@@ -50,6 +50,7 @@ class Category(Base):
     __tablename__ = 'categories'
     id = Column(Integer, primary_key=True)
     name = Column(String(50), unique=True, nullable=False)
+    __table_args__ = (UniqueConstraint('name', name='uix_category_name'),)
 
 # 创建数据库表
 Base.metadata.create_all(engine)
@@ -62,6 +63,16 @@ with Session() as session:
         if cat not in existing_categories:
             session.add(Category(name=cat))
     session.commit()
+
+def add_category_if_not_exists(session, name):
+    norm_name = (name or '').strip()
+    if not norm_name:
+        norm_name = '未分类'
+    exists = session.query(Category).filter_by(name=norm_name).first()
+    if not exists:
+        session.add(Category(name=norm_name))
+        session.commit()
+    return norm_name
 
 def process_csv_data(df, batch=None):
     """处理CSV数据并保存到数据库，查重，支持中文表头自动映射，支持批次，自动同步新分类，空分类归为未分类"""
@@ -93,16 +104,13 @@ def process_csv_data(df, batch=None):
             content = row.get('content', '')
             category = row.get('category', '')
             # 兼容NaN、None、空字符串
-            if pd.isna(category) or not str(category).strip():
+            if pd.isna(category) or not (category or '').strip():
                 category = '未分类'
             source = row.get('source', '')
             row_batch = row.get('batch', batch)
             # 自动同步新分类
             if category:
-                cat_obj = session.query(Category).filter_by(name=category).first()
-                if not cat_obj:
-                    session.add(Category(name=category))
-                    session.commit()
+                category = add_category_if_not_exists(session, category)
             # 查重：标题或内容重复则跳过
             exists = session.query(Story).filter(
                 (Story.title == title) | (Story.content == content)
@@ -115,7 +123,8 @@ def process_csv_data(df, batch=None):
                 content=content,
                 category=category,
                 source=source,
-                batch=row_batch
+                batch=row_batch,
+                created_at=datetime.now()
             )
             session.add(story)
             success_count += 1
@@ -175,7 +184,7 @@ def collect_stories():
     logger.info(f"收到采集请求数据: {json.dumps(data, ensure_ascii=False)}")
 
     api_key = data.get('api_key')
-    if not api_key or not str(api_key).strip():
+    if not api_key or not (api_key or '').strip():
         api_key = os.getenv('SILICON_API_KEY')
     model = data.get('model')
     messages = data.get('messages')
@@ -191,7 +200,7 @@ def collect_stories():
 
     # 优先从请求JSON中获取分类字段
     category = data.get('category')
-    if not category or str(category).strip() == '':
+    if not category or (category or '').strip() == '':
         category = '未分类'
 
     # 如果请求JSON中没有获取到分类，则尝试从messages内容中解析（作为备用）
@@ -201,7 +210,7 @@ def collect_stories():
             if msg.get('role') == 'user' and 'category' in msg.get('content', ''):
                 match = re.search(r'category[\s]*[:：]?[\s]*(.+)', msg.get('content', ''))
                 if match:
-                    category = match.group(1).strip()
+                    category = (match.group(1) or '').strip()
                 elif msg.get('content', '').endswith('故事') and len(msg.get('content', '').split()[-1]) > 2:
                     category = msg.get('content', '').split()[-1]
                 if category:
@@ -245,9 +254,9 @@ def collect_stories():
 
         # 在循环外部获取数据库中当前分类下已有的标题（标准化处理，去重排序）
         def normalize_category(cat):
-            return cat.strip().lower() if cat else ''
+            return (cat or '').strip().lower() if cat else ''
         norm_category = normalize_category(category)
-        existing_titles = [s.title.strip() for s in session.query(Story).all() if normalize_category(s.category) == norm_category]
+        existing_titles = [(s.title or '').strip() for s in session.query(Story).all() if normalize_category(s.category) == norm_category]
         existing_titles = sorted(set(existing_titles))  # 去重排序
         logger.info(f"数据库中{category}分类下已有故事: {existing_titles}")
 
@@ -362,7 +371,8 @@ def collect_stories():
                     content=summary or '无简介',
                     category=category,  # 使用当前收集的分类
                     source='silicon_flow',
-                    batch=batch
+                    batch=batch,
+                    created_at=datetime.now()
                 )
                 session.add(s)
                 session.commit()
@@ -438,7 +448,7 @@ def update_settings():
 def get_models():
     data = request.json
     api_key = data.get('api_key')
-    if not api_key or not str(api_key).strip():
+    if not api_key or not (api_key or '').strip():
         api_key = os.getenv('SILICON_API_KEY')
     if not api_key:
         return jsonify({'error': 'API密钥未配置'}), 400

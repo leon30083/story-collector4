@@ -99,17 +99,51 @@ export default function StoryLibraryPage({ stories = [], categories = [], onCate
   };
 
   // 批量删除
-  const handleBatchDelete = () => {
-    // TODO: 调用API删除selected故事
-    alert(`批量删除故事ID: ${selected.join(',')}`);
-    // setStories(stories.filter(s => !selected.includes(s.id)));
-    setSelected([]);
+  const handleBatchDelete = async () => {
+    if (selected.length === 0) return;
+    if (!window.confirm('确定要批量删除选中的故事吗？')) return;
+    try {
+      const res = await fetch('http://localhost:5000/api/stories/batch_delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selected })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message);
+        setSelected([]);
+        // TODO: 这里应刷新父组件数据
+      } else {
+        alert(data.error || '批量删除失败');
+      }
+    } catch (e) {
+      alert('网络错误');
+    }
   };
 
   // 批量导出
-  const handleBatchExport = () => {
-    // TODO: 调用API导出selected故事
-    alert(`批量导出故事ID: ${selected.join(',')}`);
+  const handleBatchExport = async () => {
+    if (selected.length === 0) return;
+    try {
+      const res = await fetch('http://localhost:5000/api/stories/batch_export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selected })
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'stories_export.csv';
+        a.click();
+        window.URL.revokeObjectURL(url);
+      } else {
+        alert('批量导出失败');
+      }
+    } catch (e) {
+      alert('网络错误');
+    }
   };
 
   // 单条操作

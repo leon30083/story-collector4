@@ -20,16 +20,10 @@ function App() {
   };
 
   // 获取故事列表
-  const fetchStories = async (category = '', batch = '') => {
-    let url = 'http://localhost:5000/api/stories';
-    // 不带筛选参数，始终获取全量数据
+  const fetchStories = async () => {
     const res = await fetch('http://localhost:5000/api/stories');
     const allData = await res.json();
-    // 再根据参数做前端筛选
-    let filtered = allData;
-    if (category) filtered = filtered.filter(s => s.category === category);
-    if (batch) filtered = filtered.filter(s => s.batch === batch);
-    setStories(filtered);
+    setStories(allData);
     // 批次下拉框始终用全量数据提取
     const batchSet = new Set();
     allData.forEach(story => { if (story.batch) batchSet.add(story.batch); });
@@ -38,28 +32,33 @@ function App() {
 
   // 分类或批次变更时同步
   const handleCategoryChange = (category, batch) => {
-    fetchStories(category, batch);
-    fetchCategories(); // 分类变更时也刷新分类
+    setTimeout(() => {
+      fetchStories();
+      fetchCategories();
+    }, 100);
   };
 
-  // 新增：直接追加新收集的故事
+  // 新增：采集成功后延迟刷新
   const handleStoryCollected = (newStories) => {
     if (Array.isArray(newStories) && newStories.length > 0) {
       setStories(prev => ([...newStories, ...prev]));
-      // 更新批次
       const batchSet = new Set([...newStories.map(s => s.batch), ...stories.map(s => s.batch)]);
       setBatches(Array.from(batchSet));
-      fetchCategories(); // 新采集后刷新分类
+      setTimeout(() => { fetchCategories(); }, 300);
     } else {
-      fetchStories(); // 兜底刷新
-      fetchCategories();
+      setTimeout(() => {
+        fetchStories();
+        fetchCategories();
+      }, 300);
     }
   };
 
   // 上传成功后刷新故事和分类
   const handleUploadSuccess = () => {
-    fetchStories();
-    fetchCategories();
+    setTimeout(() => {
+      fetchStories();
+      fetchCategories();
+    }, 300);
   };
 
   useEffect(() => {

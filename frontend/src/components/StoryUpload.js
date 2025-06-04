@@ -56,7 +56,9 @@ function StoryUpload({ onUploadSuccess }) {
           setSuccess('上传成功');
         }
         setFile(null);
-        onUploadSuccess();
+        setTimeout(() => {
+          onUploadSuccess();
+        }, 300);
       } else {
         setError(data.error || '上传失败');
       }

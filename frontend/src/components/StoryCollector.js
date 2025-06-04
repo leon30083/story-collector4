@@ -101,13 +101,12 @@ function StoryCollector({ onStoryGenerated = () => {}, categories = [] }) {
         appendLog('收到响应：' + JSON.stringify(data));
         if (response.ok) {
           if (Array.isArray(data.stories)) {
-            // 合并去重
             let newStories = data.stories.filter(s => !collected.some(c => c.title === s.title));
             collected = [...collected, ...newStories];
             duplicate = [...duplicate, ...(data.duplicate || [])];
             progressLogs.push(`第${attempt + 1}批：采集${newStories.length}条，重复${(data.duplicate || []).length}条`);
             setProgress(p => ({...p, current: attempt + 1, total: Math.ceil(total / batch), logs: [...progressLogs]}));
-            if (newStories.length === 0) break; // AI返回空数组，提前结束
+            if (newStories.length === 0) break;
           } else if (data.message && data.message.includes('有效收集数量不足')) {
             setError('有效收集数量不足，建议更换提示词或缩小范围。');
             setSuccess('');
@@ -116,13 +115,13 @@ function StoryCollector({ onStoryGenerated = () => {}, categories = [] }) {
           } else if (data.duplicate) {
             setError('故事已存在，未保存');
             setSuccess('');
-            onStoryGenerated();
+            setTimeout(() => { onStoryGenerated(); }, 300);
             break;
           } else {
             setSuccess('故事收集成功！');
             setPrompt('');
             setError('');
-            onStoryGenerated();
+            setTimeout(() => { onStoryGenerated(); }, 300);
             break;
           }
         } else {

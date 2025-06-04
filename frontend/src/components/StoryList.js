@@ -31,6 +31,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import Checkbox from '@mui/material/Checkbox';
 import DownloadIcon from '@mui/icons-material/Download';
 import dayjs from 'dayjs';
+import Pagination from '@mui/material/Pagination';
 
 function StoryList({ stories, categories, onCategoryChange, batches = [] }) {
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -46,13 +47,16 @@ function StoryList({ stories, categories, onCategoryChange, batches = [] }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [batchCategory, setBatchCategory] = useState('');
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
+  const [orderBy, setOrderBy] = useState('created_at');
+  const [order, setOrder] = useState('desc');
 
-  // 修复：只在组件首次挂载时初始化筛选项，不在数据变化时重置，避免选中后自动消失
+  // 新增：初始加载时清空所有筛选项，确保显示全部数据
   useEffect(() => {
-    // 只初始化一次
-    // setSelectedCategory('');
-    // setSelectedBatch('');
-    // setSearch('');
+    setSelectedCategory('');
+    setSelectedBatch('');
+    setSearch('');
+    setStartDate('');
+    setEndDate('');
   }, []);
 
   // 修复：批次下拉框始终使用props.batches渲染，不用stories数据动态生成
@@ -230,6 +234,66 @@ function StoryList({ stories, categories, onCategoryChange, batches = [] }) {
     }
   };
 
+  // 新增：自动同步筛选项，避免数据流不同步
+  useEffect(() => {
+    // 如果当前选中的分类/批次已不存在于最新数据，则重置
+    if (selectedCategory && !categories.includes(selectedCategory)) {
+      setSelectedCategory('');
+    }
+    if (selectedBatch && !batches.includes(selectedBatch)) {
+      setSelectedBatch('');
+    }
+    // 如果当前筛选后无数据，且有全量数据，自动重置筛选
+    if (stories.length > 0 && filteredStories.length === 0) {
+      setSelectedCategory('');
+      setSelectedBatch('');
+      setSearch('');
+    }
+    // eslint-disable-next-line
+  }, [stories, batches, categories]);
+
+  // 排序函数
+  const handleSort = (field) => {
+    if (orderBy === field) {
+      setOrder(order === 'asc' ? 'desc' : 'asc');
+    } else {
+      setOrderBy(field);
+      setOrder('asc');
+    }
+  };
+
+  // 排序后的stories（必须放在分页等变量前面）
+  const sortedStories = [...filteredStories].sort((a, b) => {
+    let v1 = a[orderBy];
+    let v2 = b[orderBy];
+    if (orderBy === 'created_at') {
+      v1 = v1 ? new Date(v1).getTime() : 0;
+      v2 = v2 ? new Date(v2).getTime() : 0;
+    } else {
+      v1 = v1 || '';
+      v2 = v2 || '';
+    }
+    if (v1 < v2) return order === 'asc' ? -1 : 1;
+    if (v1 > v2) return order === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
+  const totalPages = Math.ceil(sortedStories.length / PAGE_SIZE);
+  const pagedStories = sortedStories.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // 翻页时自动滚动到表格顶部
+  useEffect(() => {
+    const table = document.getElementById('story-table');
+    if (table) table.scrollIntoView({ behavior: 'smooth' });
+  }, [page]);
+
+  // 筛选条件变化时自动回到第一页
+  useEffect(() => {
+    setPage(1);
+  }, [selectedCategory, selectedBatch, search, startDate, endDate, stories]);
+
   return (
     <Box>
       <Box sx={{ mb: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
@@ -296,7 +360,7 @@ function StoryList({ stories, categories, onCategoryChange, batches = [] }) {
           批量导出
         </Button>
       </Box>
-      <TableContainer component={Paper}>
+      <TableContainer component={Paper} id="story-table">
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -307,16 +371,26 @@ function StoryList({ stories, categories, onCategoryChange, batches = [] }) {
                   onChange={handleSelectAll}
                 />
               </TableCell>
-              <TableCell>标题</TableCell>
-              <TableCell>分类</TableCell>
-              <TableCell>批次</TableCell>
-              <TableCell>创建时间</TableCell>
-              <TableCell>简介</TableCell>
+              <TableCell onClick={() => handleSort('title')} style={{cursor:'pointer'}}>
+                标题{orderBy==='title' ? (order==='asc'?' ↑':' ↓') : ''}
+              </TableCell>
+              <TableCell onClick={() => handleSort('category')} style={{cursor:'pointer'}}>
+                分类{orderBy==='category' ? (order==='asc'?' ↑':' ↓') : ''}
+              </TableCell>
+              <TableCell onClick={() => handleSort('batch')} style={{cursor:'pointer'}}>
+                批次{orderBy==='batch' ? (order==='asc'?' ↑':' ↓') : ''}
+              </TableCell>
+              <TableCell onClick={() => handleSort('created_at')} style={{cursor:'pointer'}}>
+                创建时间{orderBy==='created_at' ? (order==='asc'?' ↑':' ↓') : ''}
+              </TableCell>
+              <TableCell onClick={() => handleSort('content')} style={{cursor:'pointer'}}>
+                简介{orderBy==='content' ? (order==='asc'?' ↑':' ↓') : ''}
+              </TableCell>
               <TableCell>操作</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredStories.map((story) => (
+            {pagedStories.map((story) => (
               <TableRow key={story.id} selected={selectedIds.includes(story.id)}>
                 <TableCell padding="checkbox">
                   <Checkbox
@@ -350,7 +424,7 @@ function StoryList({ stories, categories, onCategoryChange, batches = [] }) {
                 </TableCell>
               </TableRow>
             ))}
-            {filteredStories.length === 0 && (
+            {pagedStories.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} align="center">
                   暂无数据
@@ -360,6 +434,16 @@ function StoryList({ stories, categories, onCategoryChange, batches = [] }) {
           </TableBody>
         </Table>
       </TableContainer>
+      <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+        <Pagination
+          count={totalPages}
+          page={page}
+          onChange={(_, value) => setPage(value)}
+          color="primary"
+          showFirstButton
+          showLastButton
+        />
+      </Box>
 
       {/* 详情弹窗 */}
       <Dialog open={!!detailStory} onClose={() => setDetailStory(null)} maxWidth="sm" fullWidth>

@@ -29,7 +29,6 @@ npm start
 - **端口被占用**：修改`app.py`或`package.json`中的端口配置。
 - **数据库丢失**：删除`stories.db`后重启后端会自动新建。
 - **依赖安装慢**：可用国内镜像源（如`pip install -i https://pypi.tuna.tsinghua.edu.cn/simple`）。
-
 ## 进阶（可选）
 - 前端打包：`npm run build`，可用Nginx等托管静态文件。
 - 后端用`pyinstaller`打包为exe（适合无Python环境用户）。
